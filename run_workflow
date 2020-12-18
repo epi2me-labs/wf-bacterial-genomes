@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+"""Run a snakemake workflow."""
+
+
+import argparse
+import contextlib
+import gzip
+import os
+import shutil
+import subprocess
+import sys
+from tempfile import NamedTemporaryFile
+
+import yaml
+
+
+class FileExists(argparse.Action):
+    """Checks if the input file exists, and makes absolute."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        """Validate the arguments."""
+        if not os.path.isfile(values):
+            raise RuntimeError(
+                "File path '{}' for argument '{}' does not exist.".format(
+                    values, self.dest))
+        setattr(namespace, self.dest, os.path.abspath(values))
+
+
+@contextlib.contextmanager
+def decompress(path, suffix):
+    """Decompress a path if it is gzip compressed.
+
+    A file with the extension ".gz" is decompressed to a
+    temporary file. If the extension is not ".gz" the input
+    path is yielded as an absolute path.
+    """
+    if not path.endswith(".gz"):
+        yield os.path.abspath(path)
+        return
+    with NamedTemporaryFile(suffix=suffix) as f:
+        with gzip.open(path) as original:
+            f.write(original.read())
+        f.flush()
+        yield os.path.abspath(f.name)
+
+
+@contextlib.contextmanager
+def copy_path(src, dst):
+    """Temporarily copy a path.
+
+    :param src: source path.
+    :param dst: destination path.
+    """
+    try:
+        shutil.copytree(src, dst)
+        yield dst
+    finally:
+        shutil.rmtree(dst)
+
+
+def main():
+    """Run main entrypoint."""
+    _PIPELINE_CODE_ = "/home/epi2melabs/pipeline-nanopore-ref-isoforms/"
+    _OUTPUT_DIR_ = "/output/"
+
+    parser = argparse.ArgumentParser(
+        description=(
+            f"Script to run the isoform workflow. It is assumed that a "
+            f"bind mount has been created at `{_OUTPUT_DIR_}` in the "
+            f"container and pointing to where outputs should be placed on "
+            f"the host filesystem. Arguments requiring a path should pertain "
+            f"to the container filesystem."),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "reads",
+        action=FileExists,
+        help="Sequencing reads as fastq (optionally gzip compressed).")
+    parser.add_argument(
+        "reference",
+        action=FileExists,
+        help=(
+            "Sequence reference file as fasta (optionally gzip compressed) "
+            "reads are aligned to this."))
+    parser.add_argument(
+        "annotation",
+        action=FileExists,
+        help=(
+            "Reference annotation as GTF (optionally gzip compressed) to "
+            "compare discovered isoforms against, should match the reference "
+            "file."))
+    parser.add_argument(
+        "--snake_dir",
+        default=_PIPELINE_CODE_,
+        help="The directory containing the pipeline code.")
+    parser.add_argument(
+        "--config",
+        action=FileExists,
+        default=os.path.join(f"{_PIPELINE_CODE_}", "config.yml"),
+        help="The base config file to use before overrides.")
+    parser.add_argument(
+        "--output_label",
+        required=False,
+        default="isoform_analysis",
+        help=(
+            f"Data will be labelled with this. Pipeline outputs will appear "
+            f"under <output_dir>/<output_label>, where `output_dir` is the "
+            f"host path mounted as `{_OUTPUT_DIR_}` to the container."))
+    args = parser.parse_args()
+
+    if not os.path.isdir(_OUTPUT_DIR_):
+        raise IOError(
+            f"The path `{_OUTPUT_DIR_}` was not found. Please run docker "
+            f" -v <path>:{_OUTPUT_DIR_} to provide a host mount at this "
+            f"location.")
+    workdir = os.path.abspath(os.path.join(_OUTPUT_DIR_, args.output_label))
+    if os.path.isdir(workdir):
+        raise IOError(
+            f"Output directory exists, refusing to overwrite ({workdir})")
+
+    # We allow the user to give a config file rather than use the default
+    with open(args.config) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+    with contextlib.ExitStack() as stack:
+        annotation_fname = stack.enter_context(
+            decompress(args.annotation, ".gtf"))
+        reads_fname = stack.enter_context(decompress(
+            args.reads, ".fastq"))
+        ref_fname = stack.enter_context(
+            decompress(args.reference, ".fasta"))
+        # The pipeline Snakefile contains relative paths to other
+        # pipeline files => we have to have the cwd/snakemakes "workdir"
+        # as the location of these files. Consequently this is where
+        # output files are written, and we want those on the host filesytem,
+        # so we need to copy the pipeline code to output location.
+        pipelinedir = stack.enter_context(
+            copy_path(_PIPELINE_CODE_, os.path.join(workdir, "pipeline")))
+
+        # amend the config template with inputs and output paths
+        config.update({
+            "existing_annotation": annotation_fname,
+            "reads_fastq": reads_fname,
+            "genome_fasta": ref_fname,
+            "workdir_top": "..",
+            "pipeline": ".",
+            "context_plt_alns": 0,
+            "plot_gffcmp_stats": False})
+        config_fname = os.path.join(workdir, f"{args.output_label}.cfg")
+        with open(config_fname, "w") as cfg:
+            yaml.dump(config, cfg)
+
+        subprocess.run([
+            "snakemake",
+            "--configfile", config_fname,
+            "--cores", "all",
+            "--until", "run_gffread",
+            "--scheduler", "greedy"],
+            check=True,
+            cwd=pipelinedir)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
