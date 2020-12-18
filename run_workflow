@@ -74,16 +74,19 @@ def main():
     parser.add_argument(
         "reads",
         action=FileExists,
+        metavar="reads.fastq",
         help="Sequencing reads as fastq (optionally gzip compressed).")
     parser.add_argument(
         "reference",
         action=FileExists,
+        metavar="reference.fasta",
         help=(
             "Sequence reference file as fasta (optionally gzip compressed) "
             "reads are aligned to this."))
     parser.add_argument(
         "annotation",
         action=FileExists,
+        metavar="annotation.gtf",
         help=(
             "Reference annotation as GTF (optionally gzip compressed) to "
             "compare discovered isoforms against, should match the reference "
