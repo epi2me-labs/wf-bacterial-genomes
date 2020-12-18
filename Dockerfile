@@ -65,7 +65,7 @@ RUN \
             samtools \
             seaborn-base \
             seqkit \
-            snakemake \
+            snakemake-minimal \
             stringtie \
         -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
