@@ -47,37 +47,27 @@ RUN \
 ENV MAMBA_EXE="$HOME/bin/micromamba"
 ENV MAMBA_ROOT_PREFIX="$HOME/conda"
 
+###
+# Edit below here to install workflow code
+
 RUN \
     . $CONDA_DIR/etc/profile.d/mamba.sh \
     && micromamba activate \ 
     && micromamba install -y \
-            bedtools \
-            csvtk \
-            curl \
-            gffcompare \
-            gffread \
-            git \
-            matplotlib-base \
-            minimap2 \
-            pandas \
-            pychopper \
-            requests \
-            samtools \
-            seaborn-base \
-            seqkit \
-            snakemake-minimal \
-            stringtie \
+            # List dependencies here, e.g.
+            # bedtools \
+            # matplotlib-base \
+            # minimap2 \
+            # pandas \
+            # snakemake-minimal \
         -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
-RUN \
-    git clone --depth 1 --single-branch --branch v1.0.0 \
-        https://github.com/nanoporetech/pipeline-nanopore-ref-isoforms.git \
-    && rm -rf pipeline-nanopore-ref-isoforms/evaluation
+# Any additional installation steps - run_workflow should be provided
 
 COPY run_workflow $CONDA_DIR/bin/
-ENTRYPOINT ["/home/epi2melabs/conda/bin/run_workflow"]
+ENTRYPOINT [${CONDA_DIR}"/bin/run_workflow"]
 CMD ["--help"]
 
 USER $WF_UID

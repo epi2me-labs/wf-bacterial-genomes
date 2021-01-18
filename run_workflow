@@ -84,14 +84,6 @@ def main():
             "Sequence reference file as fasta (optionally gzip compressed) "
             "reads are aligned to this."))
     parser.add_argument(
-        "annotation",
-        action=FileExists,
-        metavar="annotation.gtf",
-        help=(
-            "Reference annotation as GTF (optionally gzip compressed) to "
-            "compare discovered isoforms against, should match the reference "
-            "file."))
-    parser.add_argument(
         "--snake_dir",
         default=_PIPELINE_CODE_,
         help="The directory containing the pipeline code.")
@@ -103,7 +95,7 @@ def main():
     parser.add_argument(
         "--output_label",
         required=False,
-        default="isoform_analysis",
+        default="analysis_outputs",
         help=(
             f"Data will be labelled with this. Pipeline outputs will appear "
             f"under <output_dir>/<output_label>, where `output_dir` is the "
@@ -125,8 +117,6 @@ def main():
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     with contextlib.ExitStack() as stack:
-        annotation_fname = stack.enter_context(
-            decompress(args.annotation, ".gtf"))
         reads_fname = stack.enter_context(decompress(
             args.reads, ".fastq"))
         ref_fname = stack.enter_context(
@@ -141,25 +131,22 @@ def main():
 
         # amend the config template with inputs and output paths
         config.update({
-            "existing_annotation": annotation_fname,
             "reads_fastq": reads_fname,
-            "genome_fasta": ref_fname,
-            "workdir_top": "..",
-            "pipeline": ".",
-            "context_plt_alns": 0,
-            "plot_gffcmp_stats": False})
+            "genome_fasta": ref_fname,})
         config_fname = os.path.join(workdir, f"{args.output_label}.cfg")
         with open(config_fname, "w") as cfg:
             yaml.dump(config, cfg)
 
+        # NOTE: the cwd and path may need to be played with depending on
+        #       details of the snakemake code.
         subprocess.run([
             "snakemake",
             "--configfile", config_fname,
             "--cores", "all",
-            "--until", "run_gffread",
             "--scheduler", "greedy"],
             check=True,
             cwd=pipelinedir)
+
 
 
 if __name__ == "__main__":

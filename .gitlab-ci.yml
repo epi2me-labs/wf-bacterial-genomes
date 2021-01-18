@@ -22,13 +22,11 @@ build-image:
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
         - docker build --no-cache -t "${TAG}" -f Dockerfile .
-        - docker run --user $(id -u):$(id -g) --group-add 100 
-          -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
-          ${TAG} 
-          /input/sample_data.fastq.gz 
-          /input/Drosophila_melanogaster.BDGP6.dna.toplevel.fa.gz 
-          /input/Drosophila_melanogaster.BDGP6.95.gtf.gz
-        - ls isoform_analysis
+        - exit 1
+        #- docker run --user $(id -u):$(id -g) --group-add 100 
+        #  -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
+        #  ${TAG} 
+        #  <argument_1> <argument_2>
         - docker tag "${TAG}" "${CI_REGISTRY_IMAGE}:latest"
         - docker push "${CI_REGISTRY_IMAGE}:latest"
     artifacts:
