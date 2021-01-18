@@ -132,7 +132,7 @@ def main():
         # amend the config template with inputs and output paths
         config.update({
             "reads_fastq": reads_fname,
-            "genome_fasta": ref_fname,})
+            "genome_fasta": ref_fname})
         config_fname = os.path.join(workdir, f"{args.output_label}.cfg")
         with open(config_fname, "w") as cfg:
             yaml.dump(config, cfg)
@@ -146,7 +146,6 @@ def main():
             "--scheduler", "greedy"],
             check=True,
             cwd=pipelinedir)
-
 
 
 if __name__ == "__main__":

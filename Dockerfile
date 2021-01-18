@@ -55,19 +55,18 @@ RUN \
     && micromamba activate \ 
     && micromamba install -y \
             # List dependencies here, e.g.
-            # bedtools \
             # matplotlib-base \
-            # minimap2 \
-            # pandas \
             # snakemake-minimal \
+            python \
+            pyyaml \
         -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
 # Any additional installation steps - run_workflow should be provided
 
-COPY run_workflow $CONDA_DIR/bin/
-ENTRYPOINT [${CONDA_DIR}"/bin/run_workflow"]
+COPY run_workflow ${CONDA_DIR}/bin/
+ENTRYPOINT ["/home/epi2melabs/conda/bin/run_workflow"]
 CMD ["--help"]
 
 USER $WF_UID
