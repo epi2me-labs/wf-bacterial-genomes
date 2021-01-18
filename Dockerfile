@@ -57,17 +57,20 @@ RUN \
             # List dependencies here, e.g.
             # matplotlib-base \
             # snakemake-minimal \
-            python \
-            pyyaml \
+            medaka \
+            minimap2 \
+            nextflow \
+            racon \
         -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
 # Any additional installation steps - run_workflow should be provided
+COPY workflow.nf $HOME
 
-COPY run_workflow ${CONDA_DIR}/bin/
-ENTRYPOINT ["/home/epi2melabs/conda/bin/run_workflow"]
-CMD ["--help"]
+#COPY run_workflow ${CONDA_DIR}/bin/
+ENTRYPOINT ["nextflow"]
+CMD ["run", "/home/epi2melabs/workflow.nf", "--help"]
 
 USER $WF_UID
 WORKDIR $HOME

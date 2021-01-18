@@ -8,29 +8,6 @@ CI scripts are included for building and testing. Example data
 should be included in `test_data/` to demonstrate running of
 the container.
 
-## Workflow Developer Instructions
-
-1. Edit the Docker file
-
-   For simple cases the only thing to edit in the Dockerfile will be the dependency
-   installation step and copying the necessary workflow code.
-
-2. The Dockerfile expects an command-line program to be installed to
-
-       /home/epi2melabs/conda/bin/run_workflow
-
-   with a `--help` option. The example `run_workflow` script demonstrates a way
-   to run a `snakemake` workflow which conforms to the (horrible) `snakemake`
-   standard of maintaining workflow code alongside workflow outputs. The entrypoint
-   script should save its outputs to `/output/<output_label>` for consistency
-   across workflows.
-
-3. The CI file will need editing to show usage of the container image with
-   the sample data.
-
-4. The ***Quickstart*** section below should be edited to make sense for the
-   implemented workflow. This should amount to a copy/paste from the CI file.
-
 
 ## Quickstart
 
