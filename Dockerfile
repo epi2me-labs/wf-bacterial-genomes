@@ -47,30 +47,23 @@ RUN \
 ENV MAMBA_EXE="$HOME/bin/micromamba"
 ENV MAMBA_ROOT_PREFIX="$HOME/conda"
 
-###
-# Edit below here to install workflow code
-
 RUN \
     . $CONDA_DIR/etc/profile.d/mamba.sh \
     && micromamba activate \ 
     && micromamba install -y \
-            # List dependencies here, e.g.
-            # matplotlib-base \
-            # snakemake-minimal \
-            medaka \
-            minimap2 \
-            nextflow \
-            racon \
-        -c conda-forge -c bioconda -q -y \
+            medaka==1.2.1 \
+            minimap2==2.17 \
+            nextflow==20.10.0 \
+            racon==1.4.13 \
+        -c anaconda -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
-# Any additional installation steps - run_workflow should be provided
 COPY workflow.nf $HOME
 
 #COPY run_workflow ${CONDA_DIR}/bin/
-ENTRYPOINT ["nextflow"]
-CMD ["run", "/home/epi2melabs/workflow.nf", "--help"]
+ENTRYPOINT ["nextflow", "run", "/home/epi2melabs/workflow.nf"]
+CMD ["--help"]
 
 USER $WF_UID
 WORKDIR $HOME
