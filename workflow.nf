@@ -43,9 +43,6 @@ process overlapReads {
     file "reads2ref.paf" into reads2ref 
 
     """
-    echo $reference
-    echo $reads
-    echo "CPUS: "$task.cpus
     minimap2 -x map-ont -t $task.cpus $reference $reads > "reads2ref.paf" 
     """
 }
@@ -65,7 +62,6 @@ process scuffReference {
     file "racon.fa.gz" into racon_consensus1, racon_consensus2
 
     """
-    echo "CPUS: "$task.cpus
     racon --include-unpolished --no-trimming -q -1 -t $task.cpus $reads $paf $reference | bgzip -c > racon.fa.gz
     """
 }

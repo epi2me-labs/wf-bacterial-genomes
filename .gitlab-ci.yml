@@ -19,6 +19,11 @@ build-image:
     stage: build_and_run
     variables:
         TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    before_script:
+        - apk add wget openjdk11 bash
+        - wget -qO- https://get.nextflow.io | bash
+        - java -version
+        - ./nextflow 
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
         - docker build --no-cache -t "${TAG}" -f Dockerfile .
@@ -30,6 +35,7 @@ build-image:
           --reads /input/subset.fa.gz --reference /input/reference.subseq.fa.gz
           --threads 4 --out_dir /output/snp_calling
         # run letting nextflow orchestrate the containers
+        - docker tag "${TAG}" "${CI_PROJECT_NAME}:latest"
         - ./nextflow run workflow.nf \
           -w snp_calling_docker/workspace 
           -profile withdocker
@@ -42,4 +48,5 @@ build-image:
         paths:
             # Add the output directory for the test
             - "snp_calling"
+            - "snp_calling_docker"
         expire_in: 1 day
