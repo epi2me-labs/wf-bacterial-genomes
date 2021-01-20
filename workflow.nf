@@ -32,6 +32,7 @@ Channel
 
 process overlapReads {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -42,9 +43,6 @@ process overlapReads {
     file "reads2ref.paf" into reads2ref 
 
     """
-    echo $reference
-    echo $reads
-    echo "CPUS: "$task.cpus
     minimap2 -x map-ont -t $task.cpus $reference $reads > "reads2ref.paf" 
     """
 }
@@ -52,6 +50,7 @@ process overlapReads {
 
 process scuffReference {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -63,13 +62,13 @@ process scuffReference {
     file "racon.fa.gz" into racon_consensus1, racon_consensus2
 
     """
-    echo "CPUS: "$task.cpus
     racon --include-unpolished --no-trimming -q -1 -t $task.cpus $reads $paf $reference | bgzip -c > racon.fa.gz
     """
 }
 
 process alignReadsToScuff {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -88,6 +87,7 @@ process alignReadsToScuff {
 
 process medakaNetwork {
 
+    label "containerGPU"
     cpus 2
 
     input:
@@ -104,8 +104,9 @@ process medakaNetwork {
 
 process medakaConsensus {
 
+    label "containerCPU"
     cpus params.threads
-    publishDir "${params.out_dir}", pattern: "medaka_consensus.fasta"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.fasta"
 
     input:
     file hdf from medaka_hdf
@@ -121,8 +122,9 @@ process medakaConsensus {
 
 process medakaVCF {
 
+    label "containerCPU"
     cpus 1
-    publishDir "${params.out_dir}", pattern: "medaka_consensus.vcf"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.vcf"
 
     input:
     file fasta from medaka_fasta
