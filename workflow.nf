@@ -32,6 +32,7 @@ Channel
 
 process overlapReads {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -52,6 +53,7 @@ process overlapReads {
 
 process scuffReference {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -70,6 +72,7 @@ process scuffReference {
 
 process alignReadsToScuff {
 
+    label "containerCPU"
     cpus params.threads
 
     input:
@@ -88,6 +91,7 @@ process alignReadsToScuff {
 
 process medakaNetwork {
 
+    label "containerGPU"
     cpus 2
 
     input:
@@ -104,8 +108,9 @@ process medakaNetwork {
 
 process medakaConsensus {
 
+    label "containerCPU"
     cpus params.threads
-    publishDir "${params.out_dir}", pattern: "medaka_consensus.fasta"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.fasta"
 
     input:
     file hdf from medaka_hdf
@@ -121,8 +126,9 @@ process medakaConsensus {
 
 process medakaVCF {
 
+    label "containerCPU"
     cpus 1
-    publishDir "${params.out_dir}", pattern: "medaka_consensus.vcf"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.vcf"
 
     input:
     file fasta from medaka_fasta
