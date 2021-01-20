@@ -1,13 +1,6 @@
-# Containered Workflow template
+# Bacterial SNP calling Workflow
 
-This repository comprises a template for constructing a workflow container
-using micromamba to install most software. It handles user permissions
-and establishes a basic IO contract.
-
-CI scripts are included for building and testing. Example data 
-should be included in `test_data/` to demonstrate running of
-the container.
-
+TODO: Fill me in
 
 ## Quickstart
 
@@ -24,14 +17,24 @@ docker run \
     /input/<input_file1.fa.gz> \
     /input/<input_file2.fa.gz> \
     --output_label <my_analysis>
+
+docker run \
+    --user $(id -u):$(id -g) --group-add 100 
+    -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
+    ${CONTAINER_TAG}:latest
+    -w /output/snp_calling/workspace \
+    --reads /input/subset.fa.gz \
+    --reference /input/reference.subseq.fa.gz \
+    --threads 4 \
+    --out_dir /output/snp_calling
 ```
 
-The output of the pipeline will be found in `./<my_analysis>` for the above
-example. More generically the output will be in `<host_path>/<output_label>`
+The output of the pipeline will be found in `./snp_calling` for the above
+example. More generically the output will be in `<host_path>/<output_dir>`
 where `host_path` is the path corresponding to the `/output/` mount, and
-`output_label` is that given as the `--output_label` argument as above.
+`output_dir` is that given as the `--output_dir` argument as above.
 
 
 ## Useful links
 
-* Include useful links to e.g. the source workflow
+* TODO: Link to medaka
