@@ -21,6 +21,7 @@ if(params.help) {
 }
 
 
+// Both the input fastq and reference are used several times
 Channel
     .fromPath(params.reads)
     .into { reads1; reads2; reads3 }
@@ -31,6 +32,7 @@ Channel
 
 
 process overlapReads {
+    // find overlaps of reads to reference
 
     label "containerCPU"
     cpus params.threads
@@ -43,12 +45,13 @@ process overlapReads {
     file "reads2ref.paf" into reads2ref 
 
     """
-    minimap2 -x map-ont -t $task.cpus $reference $reads > "reads2ref.paf" 
+    minimap2 -x map-ont -t $task.cpus $reference $reads > reads2ref.paf 
     """
 }
 
 
 process scuffReference {
+    // run racon from overlaps to obtain a consensus sequence
 
     label "containerCPU"
     cpus params.threads
@@ -66,7 +69,9 @@ process scuffReference {
     """
 }
 
+
 process alignReadsToScuff {
+    // align reads back to racon consensus sequence
 
     label "containerCPU"
     cpus params.threads
@@ -76,8 +81,8 @@ process alignReadsToScuff {
     file ref from racon_consensus1
     
     output:
-    file "reads2scuffed.bam" into medaka_bam
-    file "reads2scuffed.bam.bai" into medaka_bai
+    file "reads2scuffed.bam" into medaka_bam1, medaka_bam2
+    file "reads2scuffed.bam.bai" into medaka_bai1, medaka_bai2
 
     """
     minimap2 $ref $reads -x map-ont -t $task.cpus -a --secondary=no --MD -L | samtools sort --output-fmt BAM -o reads2scuffed.bam -@ $task.cpus
@@ -85,42 +90,85 @@ process alignReadsToScuff {
     """
 }
 
-process medakaNetwork {
 
-    label "containerGPU"
+process splitRegions {
+    // split the bam reference sequences into overlapping sub-regions
+
+    label "containerCPU"
+    cpus 1
+
+    input:
+    file bam from medaka_bam1
+    file bai from medaka_bai1
+
+    output:
+    stdout into regions
+    
+    """
+    #!/usr/bin/env python
+
+    import itertools
+    import medaka.common
+
+    regions = itertools.chain.from_iterable(
+        x.split(int(1e6), overlap=1000, fixed_size=False)
+        for x in medaka.common.get_bam_regions("$bam"))
+    for reg in regions:
+        print(reg)
+    """
+}
+
+
+regs = regions.splitText()
+
+
+process medakaNetwork {
+    // run medaka consensus for each region
+
+    label "containerCPU"
     cpus 2
 
     input:
-    file bam from medaka_bam
-    file bai from medaka_bai
+    file bam from medaka_bam2
+    file bai from medaka_bai2
+    each reg from regs
 
     output:
     file "consensus_probs.hdf" into medaka_hdf
 
     """
-    medaka consensus $bam consensus_probs.hdf
+    medaka consensus $bam consensus_probs.hdf --region $reg
     """
 }
 
+
+// TODO: in a single GPU environment it would be better just
+//       to use a single process for the whole bam file. Need
+//       to read up on conditional channels
+
+
 process medakaConsensus {
+    // gather all hdfs to create consolidated consensus sequence
 
     label "containerCPU"
     cpus params.threads
     publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.fasta"
 
     input:
-    file hdf from medaka_hdf
+    file 'consensus_probs_*.hdf' from medaka_hdf.collect()
     file scuffed from racon_consensus2
 
     output:
     file "medaka_consensus.fasta" into medaka_fasta
 
     """
-    medaka stitch --threads $task.cpus $hdf $scuffed medaka_consensus.fasta
+    medaka stitch --threads $task.cpus consensus_probs_*.hdf $scuffed medaka_consensus.fasta
     """
 }
 
+
 process medakaVCF {
+    // create a VCF file by comparing the consensus to the reference
 
     label "containerCPU"
     cpus 1

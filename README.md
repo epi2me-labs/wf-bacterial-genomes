@@ -1,40 +1,34 @@
 # Bacterial SNP calling Workflow
 
-TODO: Fill me in
+This repository contains a nextflow workflow and associated Docker
+container build for performing haploid variant calling with medaka
+from basecalls and a reference file.
+
+> The pipeline is currently functional but contains little
+> configuration of minimap2, racon, and medaka beyond setting the
+> number of compute threads to use.
 
 ## Quickstart
 
 ```bash
 # build the container
-CONTAINER_TAG=epi2melabs-<name>
+CONTAINER_TAG=bacterial-snps
 docker build -t ${CONTAINER_TAG} -f Dockerfile  .
 
 # run the pipeline with the test data
-docker run \
-    --user $(id -u):$(id -g) --group-add 100 \
-    -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ \
-    ${CONTAINER_TAG}:latest \
-    /input/<input_file1.fa.gz> \
-    /input/<input_file2.fa.gz> \
-    --output_label <my_analysis>
-
-docker run \
-    --user $(id -u):$(id -g) --group-add 100 
-    -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
-    ${CONTAINER_TAG}:latest
-    -w /output/snp_calling/workspace \
-    --reads /input/subset.fa.gz \
-    --reference /input/reference.subseq.fa.gz \
-    --threads 4 \
-    --out_dir /output/snp_calling
+nextflow run workflow.nf \
+    -w snp_calling_docker/workspace 
+    -profile withdocker
+    --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
+    --threads 4 --out_dir snp_calling
 ```
 
 The output of the pipeline will be found in `./snp_calling` for the above
-example. More generically the output will be in `<host_path>/<output_dir>`
-where `host_path` is the path corresponding to the `/output/` mount, and
-`output_dir` is that given as the `--output_dir` argument as above.
+example. This directory contains the nextflow working directories alongside
+the two primary outputs of the pipeline: a `medaka_consensus.fasta` file and a
+`medaka_consensus.vcf` file.
 
 
 ## Useful links
 
-* TODO: Link to medaka
+* [medaka](https://www.github.com/nanoporetech/medaka)
