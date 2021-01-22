@@ -1,18 +1,8 @@
 
 stages:
-    - test
     - build_and_run
 
 image: ${IMAGE}
-
-
-flake8:
-    stage: test
-    script:
-        - apk add python3
-        - python3 -m venv test_env
-        - test_env/bin/pip install flake8 flake8-rst-docstrings flake8-docstrings flake8-import-order
-        - test_env/bin/flake8 run_workflow --import-order-style google --statistics
 
 
 build-image:
@@ -22,8 +12,6 @@ build-image:
     before_script:
         - apk add wget openjdk11 bash
         - wget -qO- https://get.nextflow.io | bash
-        - java -version
-        - ./nextflow 
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
         - docker build --no-cache -t "${TAG}" -f Dockerfile .
@@ -35,13 +23,6 @@ build-image:
           -profile withdocker
           --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
           --threads 4 --out_dir snp_calling
-        # run nextflow inside the container
-        #- docker run --user $(id -u):$(id -g) --group-add 100 
-        #  -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
-        #  ${TAG} 
-        #  -w /output/snp_calling/workspace
-        #  --reads /input/subset.fa.gz --reference /input/reference.subseq.fa.gz
-        #  --threads 4 --out_dir /output/snp_calling_docker
         # push
         - docker push "${CI_REGISTRY_IMAGE}:latest"
     artifacts:
