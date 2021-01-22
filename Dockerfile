@@ -37,7 +37,6 @@ USER $WF_UID
 WORKDIR $HOME
 RUN \
     wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba \
-    && ./bin/micromamba shell --help \
     && ./bin/micromamba shell init -s bash -p $CONDA_DIR \
     && source ~/.bashrc \
     && chown $WF_USER:$WF_GID $CONDA_DIR \
@@ -57,12 +56,6 @@ RUN \
         -c anaconda -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
-
-COPY workflow.nf $HOME
-
-#COPY run_workflow ${CONDA_DIR}/bin/
-ENTRYPOINT ["nextflow", "run", "/home/epi2melabs/workflow.nf"]
-CMD ["--help"]
 
 USER $WF_UID
 WORKDIR $HOME
