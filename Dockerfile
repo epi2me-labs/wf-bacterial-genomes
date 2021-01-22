@@ -53,7 +53,6 @@ RUN \
     && micromamba install -y \
             medaka==1.2.1 \
             minimap2==2.17 \
-            nextflow==20.10.0 \
             racon==1.4.13 \
         -c anaconda -c conda-forge -c bioconda -q -y \
     && fix-permissions $CONDA_DIR \

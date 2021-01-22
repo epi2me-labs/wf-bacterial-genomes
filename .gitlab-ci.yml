@@ -27,26 +27,25 @@ build-image:
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
         - docker build --no-cache -t "${TAG}" -f Dockerfile .
-        # run nextflow inside the container
-        - docker run --user $(id -u):$(id -g) --group-add 100 
-          -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
-          ${TAG} 
-          -w /output/snp_calling/workspace
-          --reads /input/subset.fa.gz --reference /input/reference.subseq.fa.gz
-          --threads 4 --out_dir /output/snp_calling
-        # run letting nextflow orchestrate the containers
         - docker tag "${TAG}" "${CI_PROJECT_NAME}:latest"
+        - docker tag "${TAG}" "${CI_REGISTRY_IMAGE}:latest"
+        # run letting nextflow orchestrate the containers
         - ./nextflow run workflow.nf \
           -w snp_calling_docker/workspace 
           -profile withdocker
           --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
-          --threads 4 --out_dir snp_calling_docker/
+          --threads 4 --out_dir snp_calling
+        # run nextflow inside the container
+        #- docker run --user $(id -u):$(id -g) --group-add 100 
+        #  -v $(pwd)/test_data/:/input/ -v $(pwd):/output/ 
+        #  ${TAG} 
+        #  -w /output/snp_calling/workspace
+        #  --reads /input/subset.fa.gz --reference /input/reference.subseq.fa.gz
+        #  --threads 4 --out_dir /output/snp_calling_docker
         # push
-        - docker tag "${TAG}" "${CI_REGISTRY_IMAGE}:latest"
         - docker push "${CI_REGISTRY_IMAGE}:latest"
     artifacts:
         paths:
             # Add the output directory for the test
             - "snp_calling"
-            - "snp_calling_docker"
         expire_in: 1 day
