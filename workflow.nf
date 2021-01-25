@@ -1,4 +1,7 @@
-#!/usr/bin/env nextflow
+#!/usr/bin/env extflow
+
+nextflow.enable.dsl = 2
+
 
 params.help = ""
 params.threads = 1
@@ -21,16 +24,6 @@ if(params.help) {
 }
 
 
-// Both the input fastq and reference are used several times
-Channel
-    .fromPath(params.reads)
-    .into { reads1; reads2; reads3 }
-
-Channel
-    .fromPath(params.reference)
-    .into { reference1; reference2; reference3 }
-
-
 process overlapReads {
     // find overlaps of reads to reference
 
@@ -38,11 +31,11 @@ process overlapReads {
     cpus params.threads
 
     input:
-    file reads from reads1
-    file reference from reference1
+    file reads
+    file reference
 
     output:
-    file "reads2ref.paf" into reads2ref 
+    file "reads2ref.paf" 
 
     """
     minimap2 -x map-ont -t $task.cpus $reference $reads > reads2ref.paf 
@@ -57,12 +50,12 @@ process scuffReference {
     cpus params.threads
 
     input:
-    file reads from reads2
-    file paf from reads2ref
-    file reference from reference2
+    file reads
+    file paf
+    file reference
 
     output:
-    file "racon.fa.gz" into racon_consensus1, racon_consensus2
+    file "racon.fa.gz"
 
     """
     racon --include-unpolished --no-trimming -q -1 -t $task.cpus $reads $paf $reference | bgzip -c > racon.fa.gz
@@ -77,12 +70,11 @@ process alignReadsToScuff {
     cpus params.threads
 
     input:
-    file reads from reads3
-    file ref from racon_consensus1
+    file reads
+    file ref
     
     output:
-    file "reads2scuffed.bam" into medaka_bam1, medaka_bam2
-    file "reads2scuffed.bam.bai" into medaka_bai1, medaka_bai2
+    tuple file("reads2scuffed.bam"), file("reads2scuffed.bam.bai")
 
     """
     minimap2 $ref $reads -x map-ont -t $task.cpus -a --secondary=no --MD -L | samtools sort --output-fmt BAM -o reads2scuffed.bam -@ $task.cpus
@@ -98,11 +90,10 @@ process splitRegions {
     cpus 1
 
     input:
-    file bam from medaka_bam1
-    file bai from medaka_bai1
+    tuple file(bam), file(bai)
 
     output:
-    stdout into regions
+    stdout
     
     """
     #!/usr/bin/env python
@@ -119,8 +110,9 @@ process splitRegions {
 }
 
 
-regs = regions.splitText()
-
+// TODO: in a single GPU environment it would be better just
+//       to use a single process for the whole bam file. Need
+//       to read up on conditional channels
 
 process medakaNetwork {
     // run medaka consensus for each region
@@ -129,22 +121,16 @@ process medakaNetwork {
     cpus 2
 
     input:
-    file bam from medaka_bam2
-    file bai from medaka_bai2
-    each reg from regs
+    tuple file(bam), file(bai)
+    each reg
 
     output:
-    file "consensus_probs.hdf" into medaka_hdf
+    file "consensus_probs.hdf"
 
     """
     medaka consensus $bam consensus_probs.hdf --region $reg
     """
 }
-
-
-// TODO: in a single GPU environment it would be better just
-//       to use a single process for the whole bam file. Need
-//       to read up on conditional channels
 
 
 process medakaConsensus {
@@ -155,11 +141,11 @@ process medakaConsensus {
     publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.fasta"
 
     input:
-    file 'consensus_probs_*.hdf' from medaka_hdf.collect()
-    file scuffed from racon_consensus2
+    file 'consensus_probs_*.hdf'
+    file scuffed
 
     output:
-    file "medaka_consensus.fasta" into medaka_fasta
+    file "medaka_consensus.fasta"
 
     """
     medaka stitch --threads $task.cpus consensus_probs_*.hdf $scuffed medaka_consensus.fasta
@@ -175,8 +161,8 @@ process medakaVCF {
     publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.vcf"
 
     input:
-    file fasta from medaka_fasta
-    file reference from reference3
+    file fasta
+    file reference
 
     output:
     file "medaka_consensus.vcf" 
@@ -184,4 +170,30 @@ process medakaVCF {
     """
     medaka tools consensus2vcf $fasta $reference --out_prefix medaka_consensus
     """
+}
+
+
+workflow calling_pipeline {
+    take:
+        reads
+        reference
+    main:
+        overlaps = overlapReads(reads, reference)
+        racon = scuffReference(reads, overlaps, reference)
+        aligns = alignReadsToScuff(reads, racon)
+        regions = splitRegions(aligns).splitText()
+        hdfs = medakaNetwork(aligns, regions)
+        consensus = medakaConsensus(hdfs.collect(), racon)
+        vcf = medakaVCF(consensus, reference)
+    emit:
+        consensus
+        vcf
+}
+
+
+workflow {
+    reads = channel.fromPath(params.reads)
+    reference = channel.fromPath(params.reference) 
+    calling_pipeline(reads, reference)
+    // TODO: how to we publish files from here rather than the processes?
 }
