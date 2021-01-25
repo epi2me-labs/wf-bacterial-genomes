@@ -5,6 +5,7 @@ nextflow.enable.dsl = 2
 
 params.help = ""
 params.threads = 1
+params.chunk_size = 1000000
 
 if(params.help) {
     log.info ''
@@ -18,6 +19,7 @@ if(params.help) {
     log.info '    --reference    FILE    Path to reference genome'
     log.info '    --out_dir      PATH    Output directory'
     log.info '    --threads      INT     Number of CPU threads to use'
+    log.info '    --chunk_size   INT     Bases by which to split reference for multiprocessing'
     log.info ''
 
     return
@@ -29,13 +31,11 @@ process overlapReads {
 
     label "containerCPU"
     cpus params.threads
-
     input:
-    file reads
-    file reference
-
+        file reads
+        file reference
     output:
-    file "reads2ref.paf" 
+        file "reads2ref.paf" 
 
     """
     minimap2 -x map-ont -t $task.cpus $reference $reads > reads2ref.paf 
@@ -48,14 +48,12 @@ process scuffReference {
 
     label "containerCPU"
     cpus params.threads
-
     input:
-    file reads
-    file paf
-    file reference
-
+        file reads
+        file paf
+        file reference
     output:
-    file "racon.fa.gz"
+        file "racon.fa.gz"
 
     """
     racon --include-unpolished --no-trimming -q -1 -t $task.cpus $reads $paf $reference | bgzip -c > racon.fa.gz
@@ -68,13 +66,11 @@ process alignReadsToScuff {
 
     label "containerCPU"
     cpus params.threads
-
     input:
-    file reads
-    file ref
-    
+        file reads
+        file ref
     output:
-    tuple file("reads2scuffed.bam"), file("reads2scuffed.bam.bai")
+        tuple file("reads2scuffed.bam"), file("reads2scuffed.bam.bai")
 
     """
     minimap2 $ref $reads -x map-ont -t $task.cpus -a --secondary=no --MD -L | samtools sort --output-fmt BAM -o reads2scuffed.bam -@ $task.cpus
@@ -88,13 +84,11 @@ process splitRegions {
 
     label "containerCPU"
     cpus 1
-
     input:
-    tuple file(bam), file(bai)
-
+        tuple file(bam), file(bai)
     output:
-    stdout
-    
+        stdout
+
     """
     #!/usr/bin/env python
 
@@ -102,7 +96,7 @@ process splitRegions {
     import medaka.common
 
     regions = itertools.chain.from_iterable(
-        x.split(int(1e6), overlap=1000, fixed_size=False)
+        x.split($params.chunk_size, overlap=1000, fixed_size=False)
         for x in medaka.common.get_bam_regions("$bam"))
     for reg in regions:
         print(reg)
@@ -119,13 +113,11 @@ process medakaNetwork {
 
     label "containerCPU"
     cpus 2
-
     input:
-    tuple file(bam), file(bai)
-    each reg
-
+        tuple file(bam), file(bai)
+        each reg
     output:
-    file "consensus_probs.hdf"
+        file "consensus_probs.hdf"
 
     """
     medaka consensus $bam consensus_probs.hdf --region $reg
@@ -138,14 +130,11 @@ process medakaConsensus {
 
     label "containerCPU"
     cpus params.threads
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.fasta"
-
     input:
-    file 'consensus_probs_*.hdf'
-    file scuffed
-
+        file 'consensus_probs_*.hdf'
+        file scuffed
     output:
-    file "medaka_consensus.fasta"
+        file "medaka_consensus.fasta"
 
     """
     medaka stitch --threads $task.cpus consensus_probs_*.hdf $scuffed medaka_consensus.fasta
@@ -158,21 +147,35 @@ process medakaVCF {
 
     label "containerCPU"
     cpus 1
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "medaka_consensus.vcf"
-
     input:
-    file fasta
-    file reference
-
+        file fasta
+        file reference
     output:
-    file "medaka_consensus.vcf" 
+        file "medaka_consensus.vcf" 
 
     """
     medaka tools consensus2vcf $fasta $reference --out_prefix medaka_consensus
     """
 }
 
+// See https://github.com/nextflow-io/nextflow/issues/1636
+// This is the only way to publish files from a workflow whilst
+// decoupling the publish from the process steps.
+process output {
+    // publish inputs to output directory
 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
+    input:
+        file fname
+    output:
+        file fname
+    """
+    echo "Writing output files"
+    """
+}
+
+
+// modular workflow
 workflow calling_pipeline {
     take:
         reads
@@ -190,10 +193,10 @@ workflow calling_pipeline {
         vcf
 }
 
-
+// entrypoint workflow
 workflow {
     reads = channel.fromPath(params.reads)
     reference = channel.fromPath(params.reference) 
-    calling_pipeline(reads, reference)
-    // TODO: how to we publish files from here rather than the processes?
+    results = calling_pipeline(reads, reference)
+    output(results.consensus.concat(results.vcf))
 }
