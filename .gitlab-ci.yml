@@ -1,32 +1,59 @@
 
 stages:
     - build_and_run
+    - release
 
 image: ${IMAGE}
-
+variables:
+    BASEIMAGE: ${CI_REGISTRY}/${CURRENT_TEMPLATE_IMAGE}
 
 build-image:
     stage: build_and_run
     variables:
-        TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     before_script:
         - apk add wget openjdk11 bash
         - wget -qO- https://get.nextflow.io | bash
     script:
         - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
-        - docker build --no-cache -t "${TAG}" -f Dockerfile .
+        - TAG="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+        - docker build --no-cache -t "${TAG}" -f Dockerfile . --build-arg BASEIMAGE=${BASEIMAGE}
+        # run letting nextflow orchestrate the containers
         - docker tag "${TAG}" "${CI_PROJECT_NAME}:latest"
-        - docker tag "${TAG}" "${CI_REGISTRY_IMAGE}:latest"
+        - OUTPUT="snp-calling"
         # run letting nextflow orchestrate the containers
         - ./nextflow run workflow.nf \
-          -w snp_calling_docker/workspace 
-          -profile withdocker
-          --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
-          --threads 4 --out_dir snp_calling
+          -w ${OUTPUT}/workspace
+          -profile standard
+          --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz
+          --threads 4 --out_dir ${OUTPUT}
         # push
-        - docker push "${CI_REGISTRY_IMAGE}:latest"
+        - if [[ ${CI_COMMIT_BRANCH} == 'dev' ]]; then
+              SHATAG=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA};
+              echo "Pushing ${SHATAG}";
+              docker tag ${TAG} ${SHATAG};
+              docker push ${SHATAG};
+          fi;
+    only:
+        - branches
     artifacts:
         paths:
             # Add the output directory for the test
-            - "snp_calling"
+            - "snp-calling"
         expire_in: 1 day
+
+
+# Retag the image for git tags (releases)
+release:
+    stage: release
+    script:
+        - echo ${CI_BUILD_TOKEN} | docker login --username gitlab-ci-token --password-stdin ${CI_REGISTRY}
+        - SHATAG=${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}
+        - RELTAG=${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}
+        - echo "Pulling ${SHATAG}"
+        - docker pull ${SHATAG} 
+        - echo "Pushing ${TAG}"
+        - docker tag ${SHATAG} ${RELTAG}
+        - docker push ${RELTAG}
+    only:
+        - tags
+

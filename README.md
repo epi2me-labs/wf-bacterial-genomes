@@ -12,13 +12,20 @@ from basecalls and a reference file.
 
 ```bash
 # build the container
-CONTAINER_TAG=bacterial-snps
-docker build -t ${CONTAINER_TAG} -f Dockerfile  .
+CONTAINER_TAG=template-workflow
+docker build \
+    -t ${CONTAINER_TAG} -f Dockerfile \
+    --build-arg BASEIMAGE=epi2melabs/base-workflow-image:latest \
+    .
+```
 
+The `BASEIMAGE` argument here can be changed to use an alternative image.
+
+```
 # run the pipeline with the test data
 nextflow run workflow.nf \
     -w snp_calling_docker/workspace 
-    -profile withdocker
+    -profile standard
     --reads test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
     --threads 4 --out_dir snp_calling
 ```

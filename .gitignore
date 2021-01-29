@@ -1,4 +1,5 @@
-*.swp
-*.swo
-isoform_analysis
-pipeline-nanopore-ref-isoforms
+nextflow
+.nextflow*
+template-workflow
+.*.swp
+.*.swo
