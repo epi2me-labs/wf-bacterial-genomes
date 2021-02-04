@@ -1,14 +1,11 @@
 ARG BASEIMAGE=epi2melabs/base-workflow-image:latest
 FROM $BASEIMAGE
 
+COPY environment.yaml $HOME/environment.yaml 
 RUN \
     . $CONDA_DIR/etc/profile.d/mamba.sh \
-    && micromamba activate \ 
-    && micromamba install -y \
-            medaka==1.2.1 \
-            minimap2==2.17 \
-            racon==1.4.13 \
-        -c anaconda -c conda-forge -c bioconda -q -y \
+    && micromamba activate \
+    && micromamba install --file $HOME/environment.yaml \
     && fix-permissions $CONDA_DIR \
     && fix-permissions $HOME
 
