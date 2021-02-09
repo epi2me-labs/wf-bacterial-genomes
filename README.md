@@ -18,10 +18,10 @@ from basecalls and a reference file.
 The Docker container image can be built with the following command:
 ```bash
 # build the container
-CONTAINER_TAG=bacterial-snps:latest
+CONTAINER_TAG=ontresearch/bacterial-snps:latest
 docker build \
     -t ${CONTAINER_TAG} -f Dockerfile \
-    --build-arg BASEIMAGE=epi2melabs/base-workflow-image:latest \
+    --build-arg BASEIMAGE=ontresearch/base-workflow-image:latest \
     .
 ```
 
