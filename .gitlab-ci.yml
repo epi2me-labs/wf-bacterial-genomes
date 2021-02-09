@@ -34,7 +34,7 @@ build-image:
         - TAG="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
         - docker build --no-cache -t "${TAG}" -f Dockerfile . --build-arg BASEIMAGE=${BASEIMAGE}
         # run letting nextflow orchestrate the containers
-        - docker tag "${TAG}" ontresearch/"${CI_PROJECT_NAME}:latest"
+        - docker tag "${TAG}" "${DOCKERHUB_NAMESPACE}/${CI_PROJECT_NAME}:latest"
         - OUTPUT="snp-calling"
         - ./nextflow run workflow.nf \
           -w ${OUTPUT}/workspace
@@ -86,7 +86,7 @@ release-hub:
     <<: *pull_tag
     script:
         - echo ${DOCKERHUB_TOKEN} | docker login --username epi2melabs --password-stdin
-        - RELTAG=ontresearch/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}
+        - RELTAG="${DOCKERHUB_NAMESPACE}/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}"
         - echo "Pushing ${RELTAG}"
         - docker tag ${SHATAG} ${RELTAG}
         - docker push ${RELTAG}
