@@ -9,20 +9,12 @@ variables:
 .install-nextflow: &install-nextflow |
     wget -qO- https://get.nextflow.io | bash
 
-.install-conda: &install-conda |
-    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p ./miniconda
-    source ./miniconda/bin/activate
-    conda init
-    
-
 conda-run:
     image: ubuntu:20.04
     stage: build_and_run
     before_script:
         - apt update && apt install -y wget default-jre
         - *install-nextflow
-        - *install-conda
     script:
         - OUTPUT="snp-calling"
         - ./nextflow run workflow.nf \
@@ -42,7 +34,7 @@ build-image:
         - TAG="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
         - docker build --no-cache -t "${TAG}" -f Dockerfile . --build-arg BASEIMAGE=${BASEIMAGE}
         # run letting nextflow orchestrate the containers
-        - docker tag "${TAG}" "${CI_PROJECT_NAME}:latest"
+        - docker tag "${TAG}" ontresearch/"${CI_PROJECT_NAME}:latest"
         - OUTPUT="snp-calling"
         - ./nextflow run workflow.nf \
           -w ${OUTPUT}/workspace
