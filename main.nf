@@ -3,26 +3,21 @@
 nextflow.enable.dsl = 2
 
 
-params.help = ""
-params.threads = 1
-params.chunk_size = 1000000
 
-if(params.help) {
-    log.info ''
-    log.info 'Haploid Variant Calling'
-    log.info ''
-    log.info 'Usage: '
-    log.info '    nextflow run workflow.nf [options]'
-    log.info ''
-    log.info 'Script Options: '
-    log.info '    --reads        FILE    Path to FASTQ file'
-    log.info '    --reference    FILE    Path to reference genome'
-    log.info '    --out_dir      PATH    Output directory'
-    log.info '    --threads      INT     Number of CPU threads to use'
-    log.info '    --chunk_size   INT     Bases by which to split reference for multiprocessing'
-    log.info ''
+def helpMessage(){
+    log.info """
+Haploid Variant Analysis Workflow
 
-    return
+Usage:
+    nextflow run epi2me-labs/wf-hap-snp [options]
+
+Options:
+    --fastq             DIR     Path to FASTQ directory (required)
+    --reference         FILE    Reference sequence FASTA file (required)
+    --out_dir           DIR     Path for output (default: $params.out_dir)
+    --medaka_model      STR     Medaka model name (default: $params.medaka_model)
+
+"""
 }
 
 
@@ -35,13 +30,42 @@ process overlapReads {
         file reads
         file reference
     output:
-        file "reads2ref.paf" 
+        file "reads2ref.sam.gz"
+        //tuple file("reads2ref.bam"), file("reads2ref.bam.csi")
 
     """
-    minimap2 -x map-ont -t $task.cpus $reference $reads > reads2ref.paf 
+    # racon doesn't like bam 
+    minimap2 -x map-ont --MD -a -t $task.cpus $reference $reads \
+        | samtools sort -@ $task.cpus \
+        | samtools view -h | bgzip > reads2ref.sam.gz
     """
 }
 
+process readStats {
+    label "containerCPU"
+    cpus 1
+    input:
+        file alignments
+    output:
+        file "readstats.txt"
+    """
+    stats_from_bam $alignments > readstats.txt
+    """
+}
+
+process coverStats {
+    label "containerCPU"
+    cpus 2
+    input:
+        file alignments
+    output:
+        file "depth.txt"
+    """
+    # we need to convert sam to bam
+    samtools view -@ $task.cpus -b --write-index $alignments -o reads.bam
+    coverage_from_bam --one_file depth.txt --stride 100 reads.bam
+    """
+}
 
 process scuffReference {
     // run racon from overlaps to obtain a consensus sequence
@@ -50,13 +74,14 @@ process scuffReference {
     cpus params.threads
     input:
         file reads
-        file paf
+        file overlaps
         file reference
     output:
         file "racon.fa.gz"
 
     """
-    racon --include-unpolished --no-trimming -q -1 -t $task.cpus $reads $paf $reference | bgzip -c > racon.fa.gz
+    racon --include-unpolished --no-trimming -q -1 -t $task.cpus \
+        $reads $overlaps $reference | bgzip -c > racon.fa.gz
     """
 }
 
@@ -158,6 +183,20 @@ process medakaVCF {
     """
 }
 
+
+process makeReport {
+    label "containerCPU"
+    cpus 1
+    input:
+        file "read_summary.txt"
+        file "depth.txt"
+    output:
+        file "summary_report.html"
+    """
+    report.py depth.txt read_summary.txt summary_report.html
+    """
+}
+
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
@@ -181,22 +220,37 @@ workflow calling_pipeline {
         reads
         reference
     main:
-        overlaps = overlapReads(reads, reference)
-        racon = scuffReference(reads, overlaps, reference)
+        alignments = overlapReads(reads, reference)
+        read_stats = readStats(alignments)
+        depth_stats = coverStats(alignments)
+        racon = scuffReference(reads, alignments, reference)
         aligns = alignReadsToScuff(reads, racon)
         regions = splitRegions(aligns).splitText()
         hdfs = medakaNetwork(aligns, regions)
         consensus = medakaConsensus(hdfs.collect(), racon)
         vcf = medakaVCF(consensus, reference)
+        report = makeReport(read_stats, depth_stats)
     emit:
         consensus
         vcf
+        report
 }
 
 // entrypoint workflow
 workflow {
-    reads = channel.fromPath(params.reads)
+    if (params.help) {
+        helpMessage()
+        exit 1
+    }
+
+    if (!params.fastq or !params.reference) {
+        helpMessage()
+        println("")
+        println("`--fastq` and `--reference` are required")
+        exit 1
+    }
+    reads = channel.fromPath(params.fastq)
     reference = channel.fromPath(params.reference) 
     results = calling_pipeline(reads, reference)
-    output(results.consensus.concat(results.vcf))
+    output(results.consensus.concat(results.vcf, results.report))
 }
