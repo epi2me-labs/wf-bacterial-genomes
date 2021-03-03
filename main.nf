@@ -48,8 +48,9 @@ process readStats {
         file alignments
     output:
         file "readstats.txt"
+        file "mapsummary.txt"
     """
-    stats_from_bam $alignments > readstats.txt
+    stats_from_bam -s mapsummary.txt -o readstats.txt $alignments
     """
 }
 
@@ -188,12 +189,15 @@ process makeReport {
     label "containerCPU"
     cpus 1
     input:
-        file "read_summary.txt"
         file "depth.txt"
+        file "read_summary.txt"
+        file "align_summary.txt"
+        file "variants.vcf"
     output:
         file "summary_report.html"
     """
-    report.py depth.txt read_summary.txt summary_report.html
+    bcftools stats variants.vcf > variants.stats
+    report.py depth.txt read_summary.txt align_summary.txt variants.stats summary_report.html
     """
 }
 
@@ -229,7 +233,7 @@ workflow calling_pipeline {
         hdfs = medakaNetwork(aligns, regions)
         consensus = medakaConsensus(hdfs.collect(), racon)
         vcf = medakaVCF(consensus, reference)
-        report = makeReport(read_stats, depth_stats)
+        report = makeReport(depth_stats, read_stats[0], read_stats[1], vcf)
     emit:
         consensus
         vcf
