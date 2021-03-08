@@ -1,0 +1,7 @@
+name: prokka-epi2melabs
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+dependencies:
+    - prokka==1.14.5

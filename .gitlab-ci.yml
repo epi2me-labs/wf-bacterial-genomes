@@ -1,4 +1,5 @@
 stages:
+    - prokka
     - build_and_run
     - release
 
@@ -31,7 +32,6 @@ conda-run:
           --threads 4 --out_dir ${OUTPUT}
     only:
         - branches
-
 
 build-image:
     stage: build_and_run
@@ -103,6 +103,17 @@ release-hub:
         - docker push ${RELTAG}
         - docker tag ${SHATAG} ${LATEST}
         - docker push ${LATEST}
+
+# prokka to dockerhub, we don't expect to change this often so a simple manual build
+release-prokka:
+    stage: prokka
+    when: manual
+    script:
+        - echo ${DOCKERHUB_TOKEN} | docker login --username epi2melabs --password-stdin
+        - LATEST="${DOCKERHUB_NAMESPACE}/prokka:latest"
+        - docker build --no-cache -t "${LATEST}" -f prokka_Dockerfile .
+        - docker push ${LATEST}
+
 
 # Send all tags matching vX.Y.Z to github (code and release)
 push-github:

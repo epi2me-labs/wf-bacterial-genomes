@@ -1,0 +1,13 @@
+ARG BASEIMAGE=ontresearch/base-workflow-image:v0.1.0
+FROM $BASEIMAGE
+
+COPY environment_prokka.yaml $HOME/environment_prokka.yaml 
+RUN \
+    . $CONDA_DIR/etc/profile.d/mamba.sh \
+    && micromamba activate \
+    && micromamba install --file $HOME/environment_prokka.yaml \
+    && fix-permissions $CONDA_DIR \
+    && fix-permissions $HOME
+
+USER $WF_UID
+WORKDIR $HOME

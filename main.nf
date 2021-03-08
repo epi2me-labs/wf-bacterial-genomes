@@ -16,6 +16,8 @@ Options:
     --reference         FILE    Reference sequence FASTA file (required)
     --out_dir           DIR     Path for output (default: $params.out_dir)
     --medaka_model      STR     Medaka model name (default: $params.medaka_model)
+    --run_prokka        BOOL    Run prokka on consensus sequence (default: $params.run_prokka)
+    --prokka_opts       STR     Command-line arguments for prokka (default: $params.prokka_opts)
 
 """
 }
@@ -185,6 +187,21 @@ process medakaVCF {
 }
 
 
+process runProkka {
+    // run prokka in a basic way on the consensus sequence
+
+    label "prokka"
+    cpus 1
+    input:
+        file "consensus.fasta"
+    output:
+        file "prokka_results"
+    """
+    prokka ${params.prokka_opts} --outdir prokka_results --prefix prokka consensus.fasta
+    """
+}
+
+
 process makeReport {
     label "containerCPU"
     cpus 1
@@ -233,11 +250,17 @@ workflow calling_pipeline {
         hdfs = medakaNetwork(aligns, regions)
         consensus = medakaConsensus(hdfs.collect(), racon)
         vcf = medakaVCF(consensus, reference)
+        if (params.run_prokka) {
+            prokka = runProkka(consensus)
+        } else {
+            prokka = Channel.empty()
+        } 
         report = makeReport(depth_stats, read_stats[0], read_stats[1], vcf)
     emit:
         consensus
         vcf
         report
+        prokka
 }
 
 // entrypoint workflow
@@ -256,5 +279,5 @@ workflow {
     reads = channel.fromPath(params.fastq)
     reference = channel.fromPath(params.reference) 
     results = calling_pipeline(reads, reference)
-    output(results.consensus.concat(results.vcf, results.report))
+    output(results.consensus.concat(results.vcf, results.report, results.prokka))
 }
