@@ -112,7 +112,7 @@ nextflow run epi2me-labs/wf-hap-snps \
     -w ${OUTPUT}/workspace 
     -profile standard
     --fastq test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
-    --threads 4 --out_dir ${OUTPUT}/snp_calling
+    --threads 4 --out_dir ${OUTPUT}
 ```
 
 The output of the pipeline will be found in `./snp_calling` for the above
