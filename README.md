@@ -115,7 +115,7 @@ nextflow run epi2me-labs/wf-hap-snps \
     --threads 4 --out_dir ${OUTPUT}
 ```
 
-The output of the pipeline will be found in `./snp_calling` for the above
+The output of the pipeline will be found in `./output` for the above
 example. This directory contains the nextflow working directories alongside
 the two primary outputs of the pipeline: a `medaka_consensus.fasta` file and a
 `medaka_consensus.vcf` file.
