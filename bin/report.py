@@ -10,9 +10,8 @@ from bokeh.models import Panel, Tabs
 from bokeh.models.formatters import NumeralTickFormatter
 import aplanat
 from aplanat import annot, bars, gridplot, hist, lines, points, report, spatial
-
-from parse import parse_bcftools_stats
-
+from aplanat.components import bcfstats
+from aplanat.util import Colors
 
 def main():
     parser = argparse.ArgumentParser()
@@ -27,14 +26,11 @@ def main():
         "Haploid variant calling Summary Report",
         "Results generated through the wf-hap-snp nextflow workflow provided by Oxford Nanopore Technologies")
 
-    report_doc.markdown('''
+    section = report_doc.add_section()
+    section.markdown('''
 ### Read Quality control
 This section displays basic QC metrics indicating read data quality.
 ''')
-
-    np_blue = '#0084A9'
-    np_dark_grey = '#455560'
-    np_light_blue = '#90C6E7'
 
     # read length summary
     seq_summary = pd.read_csv(args.summary, sep='\t')
@@ -43,7 +39,7 @@ This section displays basic QC metrics indicating read data quality.
     median_length = np.median(seq_summary['read_length'])
     datas = [seq_summary['read_length']]
     length_hist = hist.histogram(
-        datas, colors=[np_blue], bins=100,
+        datas, colors=[Colors.cerulean], bins=100,
         title="Read length distribution.",
         x_axis_label='Read Length / bases',
         y_axis_label='Number of reads',
@@ -56,7 +52,7 @@ This section displays basic QC metrics indicating read data quality.
     datas = [seq_summary['acc']]
     mean_q, median_q = np.mean(datas[0]), np.median(datas[0])
     q_hist = hist.histogram(
-        datas, colors=[np_blue], bins=100,
+        datas, colors=[Colors.cerulean], bins=100,
         title="Read quality (wrt reference sequence)",
         x_axis_label="Read Quality",
         y_axis_label="Number of reads",
@@ -66,9 +62,10 @@ This section displays basic QC metrics indicating read data quality.
         "Mean: {:.0f}. Median: {:.0f}".format(
             mean_q, median_q))
 
-    report_doc.plot(gridplot([[length_hist, q_hist]]))
+    section.plot(gridplot([[length_hist, q_hist]]))
 
-    report_doc.markdown('''
+    section = report_doc.add_section()
+    section.markdown('''
 ### Genome coverage
 Plots below indicate depth of coverage of the coloured by amplicon pool.
 For adequate variant calling depth should be at least 50X in any region.
@@ -88,7 +85,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
         xs = [data['pos'], data['pos']]
         ys = [data['depth_fwd'], data['depth_rev']]
         plot = points.points(
-            xs, ys, colors=[np_light_blue, np_dark_grey],
+            xs, ys, colors=[Colors.light_cornflower_blue, Colors.feldgrau],
             title="{}: {:.0f}X, {:.1f}% > {}X".format(
                 sample, depth.mean(), depth_thresh, depth_lim),
             height=300, width=800,
@@ -100,7 +97,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
         xs = [data['depth'].sort_values(ascending=False)]
         ys = [np.linspace(1, 100, len(data))]
         plot = lines.line(
-            xs, ys, colors=[np_light_blue],
+            xs, ys, colors=[Colors.light_cornflower_blue],
             title="{}: {:.0f}X, {:.1f}% > {}X".format(
                 sample, depth.mean(), depth_thresh, depth_lim),
             height=300, width=800,
@@ -108,119 +105,20 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
             y_axis_label='%age of reference')
         plots_cover.append(plot)
 
-
     tab1 = Panel(
         child=gridplot(plots_orient, ncols=1), title="Coverage traces")
     tab2 = Panel(
         child=gridplot(plots_cover, ncols=1), title="Proportions covered")
     cover_panel = Tabs(tabs=[tab1, tab2])
-    report_doc.plot(cover_panel)
+    section.plot(cover_panel)
+
+    # canned VCF stats report component
+    section = report_doc.add_section()
+    bcfstats.full_report(args.bcf_stats, report=section)
 
     # Footer section
-    report_doc.markdown('''
-### Variant Calls
-
-This section summarises information from the VCF file found within the workflow output directory.
-
-#### Summary
-
-The following tables and figures are derived from the output of `bcftools stats`.
-''')
-
-    vcf_tables = parse_bcftools_stats(args.bcf_stats)
-    report_doc.markdown("""
-**Variant counts:**
-Barcoded samples are represented independently
-""")
-    df = vcf_tables['SN'].rename(columns={'id':'sample'}) \
-        .drop(columns='samples').set_index('sample').transpose()
-    report_doc.table(df, index=True)
-    report_doc.markdown("**Transitions and tranversions:**")
-    df = vcf_tables['TSTV'].rename(columns={'id':'sample'}) \
-        .set_index('sample').transpose()
-    report_doc.table(df, index=True)
-    report_doc.markdown("""
-**Substitution types**
-
-Base substitutions aggregated across all samples (symmetrised by pairing)
-""")
-
-    sim_sub = {
-        'G>A': 'C>T', 'G>C': 'C>G', 'G>T': 'C>A',
-        'T>A': 'A>T', 'T>C': 'A>G', 'T>G': 'A>C'}
-    def canon_sub(sub):
-        b1 = sub[0]
-        if b1 not in {'A', 'C'}:
-            return canon_sub(sim_sub[sub])
-        else:
-            return b1, sub[2]
-
-    df = vcf_tables['ST']
-    df['canon_sub'] = df['type'].apply(canon_sub)
-    df['original'] = df['canon_sub'].apply(lambda x: x[0])
-    df['substitution'] = df['canon_sub'].apply(lambda x: x[1])
-    df['count'] = df['count'].astype(int)
-    df = df[['original', 'substitution', 'count']] \
-        .groupby(['original', 'substitution']) \
-        .agg(count=pd.NamedAgg(column='count', aggfunc='sum')) \
-        .reset_index()
-
-    from bokeh.models import ColorBar, LinearColorMapper
-    from bokeh.palettes import Blues9
-    from bokeh.plotting import figure
-    colors = Blues9[::-1]
-    mapper = LinearColorMapper(
-        palette=colors, low=min(df['count']), high=max(df['count']))
-    p = figure(
-        y_range=['C', 'A'], x_range=['A', 'C', 'G', 'T'],
-        x_axis_location="above",
-        x_axis_label='alternative base',
-        y_axis_label='reference base',
-        tools="save", toolbar_location='below',
-        output_backend="webgl",
-        height=225, width=300,
-        tooltips=[('sub', '@original>@substitution'), ('count', '@count')])
-    p.grid.grid_line_color = None
-    p.axis.axis_line_color = None
-    p.axis.major_tick_line_color = None
-    p.rect(
-        source=df, y="original", x="substitution", width=1, height=1,
-        fill_color={'field': 'count', 'transform': mapper},
-        line_color=None)
-    color_bar = ColorBar(
-        title='', color_mapper=mapper, label_standoff=10,
-        location=(0, 0))
-    #p.add_layout(color_bar, 'right')
-
-    report_doc.plot(p)
-
-    report_doc.markdown("""
-**Indel lengths**
-
-Insertion and deletion lengths aggregated across all samples.
-""")
-    df = vcf_tables['IDD']
-    df['nlength'] = df['length (deletions negative)'].astype(int)
-    df['count'] = df['number of sites'].astype(int)
-    # pad just to pull out axes by a minimum
-    pad = pd.DataFrame({'nlength':[-10,+10], 'count':[0,0]})
-    counts = df.groupby('nlength') \
-        .agg(count=pd.NamedAgg(column='count', aggfunc='sum')) \
-        .reset_index().append(pad)
-    plot = hist.histogram(
-        [counts['nlength']], weights=[counts['count']],
-        colors = [np_light_blue], binwidth=1,
-        title='Insertion and deletion variant lengths',
-        x_axis_label='Length / bases (deletions negative)',
-        y_axis_label='Count')
-    #plot.xaxis.formatter = NumeralTickFormatter(format="0,0")
-    report_doc.plot(plot)
-
-
-
-
-    # Footer section
-    report_doc.markdown('''
+    section = report_doc.add_section()
+    section.markdown('''
 ### About
 
 **Oxford Nanopore Technologies products are not intended for use for health assessment
