@@ -107,7 +107,7 @@ argument to `nextflow run`:
 
 ```
 # run the pipeline with the test data
-OUTPUT=snp_calling
+OUTPUT=output
 nextflow run epi2me-labs/wf-hap-snps \
     -w ${OUTPUT}/workspace 
     -profile standard
