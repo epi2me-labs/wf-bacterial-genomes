@@ -2,21 +2,9 @@ include:
     - project: "epi2melabs/ci-templates"
       file: "wf-containers.yaml"
 
-.run: &run |
-    ${NEXTFLOWRUN} -w ${OUTPUT}/workspace --out_dir ${OUTPUT} \
-        --fastq test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz \
-        --threads 4 --out_dir
+variables:
+    NF_WORKFLOW_OPTS: "--fastq test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz --threads 4"
 
-conda-run:
-    extends: .conda-run
-    script:
-        - *run
-
-docker-run:
-    extends: .docker-run
-    script:
-        - *run
-        - touch ${CI_PROJECT_DIR}/success
 
 
 # prokka to dockerhub, we don't expect to change this often so a simple manual build
