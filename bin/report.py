@@ -1,19 +1,19 @@
 #!/usr/bin/env python
+"""Create workflow report."""
 
 import argparse
-import glob
+
+from aplanat import annot, hist, lines, points, report
+from aplanat.components import bcfstats
+from aplanat.util import Colors
+from bokeh.layouts import gridplot
+from bokeh.models import Panel, Tabs
 import numpy as np
 import pandas as pd
 
-from bokeh.layouts import gridplot, layout
-from bokeh.models import Panel, Tabs
-from bokeh.models.formatters import NumeralTickFormatter
-import aplanat
-from aplanat import annot, bars, gridplot, hist, lines, points, report, spatial
-from aplanat.components import bcfstats
-from aplanat.util import Colors
 
 def main():
+    """Run entry point."""
     parser = argparse.ArgumentParser()
     parser.add_argument("depth", help="Depth summary file.")
     parser.add_argument("summary", help="Read statistics summary file.")
@@ -24,13 +24,14 @@ def main():
 
     report_doc = report.HTMLReport(
         "Haploid variant calling Summary Report",
-        "Results generated through the wf-hap-snp nextflow workflow provided by Oxford Nanopore Technologies")
+        ("Results generated through the wf-hap-snp nextflow "
+            "workflow provided by Oxford Nanopore Technologies"))
 
     section = report_doc.add_section()
-    section.markdown('''
+    section.markdown("""
 ### Read Quality control
 This section displays basic QC metrics indicating read data quality.
-''')
+""")
 
     # read length summary
     seq_summary = pd.read_csv(args.summary, sep='\t')
@@ -49,6 +50,7 @@ This section displays basic QC metrics indicating read data quality.
         "Mean: {:.0f}. Median: {:.0f}".format(
             mean_length, median_length))
 
+    # read quality
     datas = [seq_summary['acc']]
     mean_q, median_q = np.mean(datas[0]), np.median(datas[0])
     q_hist = hist.histogram(
@@ -90,7 +92,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
                 sample, depth.mean(), depth_thresh, depth_lim),
             height=300, width=800,
             x_axis_label='position', y_axis_label='depth',
-            ylim=(0,300))
+            ylim=(0, 300))
         plots_orient.append(plot)
 
         # cumulative coverage
@@ -121,17 +123,20 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
     section.markdown('''
 ### About
 
-**Oxford Nanopore Technologies products are not intended for use for health assessment
-or to diagnose, treat, mitigate, cure or prevent any disease or condition.**
+**Oxford Nanopore Technologies products are not intended for use for health
+assessment or to diagnose, treat, mitigate, cure or prevent any disease or
+condition.**
 
-This report was produced using the [epi2me-labs/wf-hap-snp](https://github.com/epi2me-labs/wf-hap-snp).
-The workflow can be run using `nextflow epi2me-labs/wf-hap-snp --help`
+This report was produced using the
+[epi2me-labs/wf-hap-snp](https://github.com/epi2me-labs/wf-hap-snp).  The
+workflow can be run using `nextflow epi2me-labs/wf-hap-snp --help`
 
 ---
 ''')
 
     # write report
     report_doc.write("summary_report.html")
+
 
 if __name__ == "__main__":
     main()
