@@ -23,6 +23,40 @@ Options:
 }
 
 
+process concatFastq {
+    // concatenate fastq and fastq.gz in a dir
+
+    label "containerCPU"
+    cpus 1
+    input:
+        file "input"
+    output:
+        file "reads.fastq.gz"
+
+    shell:
+    '''
+#!/usr/bin/env python
+from glob import glob
+import gzip
+import itertools
+import os
+import pysam
+
+# we use pysam just because it will read both fastq and fastq.gz
+# and we don't have to worry about having a combination or not
+with gzip.open("reads.fastq.gz", "wt") as fh:
+    files = itertools.chain(
+        glob("input/*.fastq"), glob("input/*.fastq.gz"))
+    records = itertools.chain.from_iterable(
+        pysam.FastxFile(fn) for fn in files) 
+    for rec in records:
+        annot = " {}".format(rec.comment) if rec.comment else ""
+        qual = rec.quality if rec.quality else "+"*len(rec.sequence)
+        fh.write("@{}{}\\n{}\\n+\\n{}\\n".format(rec.name, annot, rec.sequence, qual))
+    '''
+}
+
+
 process overlapReads {
     // find overlaps of reads to reference
 
@@ -241,6 +275,7 @@ workflow calling_pipeline {
         reads
         reference
     main:
+        reads = concatFastq(reads)
         alignments = overlapReads(reads, reference)
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
@@ -276,7 +311,7 @@ workflow {
         println("`--fastq` and `--reference` are required")
         exit 1
     }
-    reads = channel.fromPath(params.fastq)
+    reads = channel.fromPath(params.fastq, type:'dir', checkIfExists:true)
     reference = channel.fromPath(params.reference) 
     results = calling_pipeline(reads, reference)
     output(results.consensus.concat(results.vcf, results.report, results.prokka))
