@@ -3,7 +3,7 @@ include:
       file: "wf-containers.yaml"
 
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz --threads 4"
+    NF_WORKFLOW_OPTS: "--fastq test_data/ --reference test_data/ref/reference.subseq.fa.gz --threads 4"
 
 
 

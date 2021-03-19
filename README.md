@@ -111,7 +111,7 @@ OUTPUT=output
 nextflow run epi2me-labs/wf-hap-snps \
     -w ${OUTPUT}/workspace 
     -profile standard
-    --fastq test_data/subset.fa.gz --reference test_data/reference.subseq.fa.gz 
+    --fastq test_data --reference test_data/ref/reference.subseq.fa.gz 
     --threads 4 --out_dir ${OUTPUT}
 ```
 
