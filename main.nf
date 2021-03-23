@@ -245,10 +245,10 @@ process makeReport {
         file "align_summary.txt"
         file "variants.vcf"
     output:
-        file "summary_report.html"
+        file "wf-hap-snps-report.html"
     """
     bcftools stats variants.vcf > variants.stats
-    report.py depth.txt read_summary.txt align_summary.txt variants.stats summary_report.html
+    report.py depth.txt read_summary.txt align_summary.txt variants.stats wf-hap-snps-report.html
     """
 }
 
