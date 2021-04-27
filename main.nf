@@ -2,8 +2,6 @@
 
 nextflow.enable.dsl = 2
 
-
-
 def helpMessage(){
     log.info """
 Haploid Variant Analysis Workflow
@@ -24,119 +22,63 @@ Options:
 
 
 process concatFastq {
-    // concatenate fastq and fastq.gz in a dir
-
     label "containerCPU"
     cpus 1
     input:
         file "input"
     output:
-        file "reads.fastq.gz"
+        file "reads.fastq"
 
     shell:
-    '''
-#!/usr/bin/env python
-from glob import glob
-import gzip
-import itertools
-import os
-import pysam
-
-# we use pysam just because it will read both fastq and fastq.gz
-# and we don't have to worry about having a combination or not
-with gzip.open("reads.fastq.gz", "wt") as fh:
-    files = itertools.chain(
-        glob("input/*.fastq"), glob("input/*.fastq.gz"))
-    records = itertools.chain.from_iterable(
-        pysam.FastxFile(fn) for fn in files) 
-    for rec in records:
-        annot = " {}".format(rec.comment) if rec.comment else ""
-        qual = rec.quality if rec.quality else "+"*len(rec.sequence)
-        fh.write("@{}{}\\n{}\\n+\\n{}\\n".format(rec.name, annot, rec.sequence, qual))
-    '''
-}
-
-
-process overlapReads {
-    // find overlaps of reads to reference
-
-    label "containerCPU"
-    cpus params.threads
-    input:
-        file reads
-        file reference
-    output:
-        file "reads2ref.sam.gz"
-        //tuple file("reads2ref.bam"), file("reads2ref.bam.csi")
-
     """
-    # racon doesn't like bam 
-    minimap2 -x map-ont --MD -a -t $task.cpus $reference $reads \
-        | samtools sort -@ $task.cpus \
-        | samtools view -h | bgzip > reads2ref.sam.gz
+    # TODO: could do better here
+    fastcat -r summary.txt input/*.fastq* > reads.fastq
     """
 }
+
 
 process readStats {
     label "containerCPU"
     cpus 1
     input:
-        file alignments
+        tuple file("alignments.bam"), file("alignments.bam.bai")
     output:
-        file "readstats.txt"
-        file "mapsummary.txt"
+        path "readstats.txt", emit: stats
+        path "mapsummary.txt", emit: summary
     """
-    stats_from_bam -s mapsummary.txt -o readstats.txt $alignments
+    stats_from_bam -s mapsummary.txt -o readstats.txt alignments.bam
+    if [[ \$(wc -l <readstats.txt) -le 1 ]]; then
+        echo "No alignments of reads to reference sequence found."
+        exit 1
+    fi
     """
 }
+
 
 process coverStats {
     label "containerCPU"
     cpus 2
     input:
-        file alignments
+        tuple file("alignments.bam"), file("alignments.bam.bai")
     output:
         file "depth.txt"
     """
-    # we need to convert sam to bam
-    samtools view -@ $task.cpus -b --write-index $alignments -o reads.bam
-    coverage_from_bam --one_file depth.txt --stride 100 reads.bam
+    coverage_from_bam --one_file depth.txt --stride 100 alignments.bam
     """
 }
 
-process scuffReference {
-    // run racon from overlaps to obtain a consensus sequence
 
+process alignReads {
     label "containerCPU"
     cpus params.threads
     input:
         file reads
-        file overlaps
         file reference
     output:
-        file "racon.fa.gz"
+        tuple file("reads2ref.bam"), file("reads2ref.bam.bai")
 
     """
-    racon --include-unpolished --no-trimming -q -1 -t $task.cpus \
-        $reads $overlaps $reference | bgzip -c > racon.fa.gz
-    """
-}
-
-
-process alignReadsToScuff {
-    // align reads back to racon consensus sequence
-
-    label "containerCPU"
-    cpus params.threads
-    input:
-        file reads
-        file ref
-    output:
-        tuple file("reads2scuffed.bam"), file("reads2scuffed.bam.bai")
-
-    """
-    minimap2 $ref $reads -x map-ont -t $task.cpus -a --secondary=no --MD -L | samtools sort --output-fmt BAM -o reads2scuffed.bam -@ $task.cpus
-    samtools index reads2scuffed.bam -@ $task.cpus
+    mini_align -i $reads -r $reference -p reads2ref -t $task.cpus -m
     """
 }
 
@@ -150,7 +92,6 @@ process splitRegions {
         tuple file(bam), file(bai)
     output:
         stdout
-
     """
     #!/usr/bin/env python
 
@@ -180,43 +121,41 @@ process medakaNetwork {
         each reg
     output:
         file "consensus_probs.hdf"
-
     """
-    medaka consensus $bam consensus_probs.hdf --region $reg
+    medaka consensus $bam consensus_probs.hdf --threads 2 --model $params.medaka_model --region "$reg"
+    """
+}
+
+
+process medakaVariant {
+    label "containerCPU"
+    cpus 1
+    input:
+        file "consensus_probs_*.hdf"
+        tuple file(bam), file(bai)
+        file reference
+    output:
+        tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
+    """
+    medaka variant $reference consensus_probs_*.hdf vanilla.vcf
+    medaka tools annotate vanilla.vcf $reference $bam medaka.vcf
+    bgzip -i medaka.vcf
     """
 }
 
 
 process medakaConsensus {
-    // gather all hdfs to create consolidated consensus sequence
-
-    label "containerCPU"
-    cpus params.threads
-    input:
-        file 'consensus_probs_*.hdf'
-        file scuffed
-    output:
-        file "medaka_consensus.fasta"
-
-    """
-    medaka stitch --threads $task.cpus consensus_probs_*.hdf $scuffed medaka_consensus.fasta
-    """
-}
-
-
-process medakaVCF {
-    // create a VCF file by comparing the consensus to the reference
-
     label "containerCPU"
     cpus 1
     input:
-        file fasta
+        file "consensus_probs_*.hdf"
         file reference
     output:
-        file "medaka_consensus.vcf" 
+        file "medaka.fasta.gz"
 
     """
-    medaka tools consensus2vcf $fasta $reference --out_prefix medaka_consensus
+    medaka stitch --threads $task.cpus consensus_probs_*.hdf $reference medaka.fasta
+    bgzip medaka.fasta
     """
 }
 
@@ -243,21 +182,22 @@ process makeReport {
         file "depth.txt"
         file "read_summary.txt"
         file "align_summary.txt"
-        file "variants.vcf"
+        tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
     output:
         file "wf-hap-snps-report.html"
     """
-    bcftools stats variants.vcf > variants.stats
+    bcftools stats medaka.vcf.gz > variants.stats
     report.py depth.txt read_summary.txt align_summary.txt variants.stats wf-hap-snps-report.html
     """
 }
+
 
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-
+    label "containerCPU"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         file fname
@@ -276,27 +216,26 @@ workflow calling_pipeline {
         reference
     main:
         reads = concatFastq(reads)
-        alignments = overlapReads(reads, reference)
+        alignments = alignReads(reads, reference)
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
-        racon = scuffReference(reads, alignments, reference)
-        aligns = alignReadsToScuff(reads, racon)
-        regions = splitRegions(aligns).splitText()
-        hdfs = medakaNetwork(aligns, regions)
-        consensus = medakaConsensus(hdfs.collect(), racon)
-        vcf = medakaVCF(consensus, reference)
+        regions = splitRegions(alignments).splitText()
+        hdfs = medakaNetwork(alignments, regions).collect()
+        consensus = medakaConsensus(hdfs, reference)
+        variants = medakaVariant(hdfs, alignments, reference)
         if (params.run_prokka) {
             prokka = runProkka(consensus)
         } else {
             prokka = Channel.empty()
         } 
-        report = makeReport(depth_stats, read_stats[0], read_stats[1], vcf)
+        report = makeReport(depth_stats, read_stats.stats, read_stats.summary, variants)
     emit:
         consensus
-        vcf
+        variants
         report
         prokka
 }
+
 
 // entrypoint workflow
 workflow {
@@ -312,7 +251,7 @@ workflow {
         exit 1
     }
     reads = channel.fromPath(params.fastq, type:'dir', checkIfExists:true)
-    reference = channel.fromPath(params.reference) 
+    reference = channel.fromPath(params.reference)
     results = calling_pipeline(reads, reference)
-    output(results.consensus.concat(results.vcf, results.report, results.prokka))
+    output(results.consensus.concat(results.variants, results.report, results.prokka))
 }
