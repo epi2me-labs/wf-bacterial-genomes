@@ -6,13 +6,8 @@ variables:
     NF_WORKFLOW_OPTS: "--fastq test_data/ --reference test_data/ref/reference.subseq.fa.gz --threads 4"
 
 
-
-# prokka to dockerhub, we don't expect to change this often so a simple manual build
-release-prokka:
-    stage: custom-builds
-    when: manual
-    script:
-        - echo ${DOCKERHUB_TOKEN} | docker login --username epi2melabs --password-stdin
-        - LATEST="${DOCKERHUB_NAMESPACE}/prokka:latest"
-        - docker build --no-cache -t "${LATEST}" -f prokka_Dockerfile .
-        - docker push ${LATEST}
+release-centrifuge:
+    extends: .aux-container
+    variables:
+        AUX_IMAGE_NAME: "prokka"
+        AUX_IMAGE_ENVFILE: "environment_prokka.yaml"
