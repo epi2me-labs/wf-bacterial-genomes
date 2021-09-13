@@ -16,6 +16,7 @@ Options:
     --medaka_model      STR     Medaka model name (default: $params.medaka_model)
     --run_prokka        BOOL    Run prokka on consensus sequence (default: $params.run_prokka)
     --prokka_opts       STR     Command-line arguments for prokka (default: $params.prokka_opts)
+    --report_name       STR     Optional report suffix (default: $params.report_name)
 
 """
 }
@@ -184,10 +185,12 @@ process makeReport {
         file "align_summary.txt"
         tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
     output:
-        file "wf-hap-snps-report.html"
+        file "wf-hap-snps-*.html"
+    script:
+        report_name = "wf-hap-snps-" + params.report_name + '.html'
     """
     bcftools stats medaka.vcf.gz > variants.stats
-    report.py depth.txt read_summary.txt align_summary.txt variants.stats wf-hap-snps-report.html
+    report.py depth.txt read_summary.txt align_summary.txt variants.stats $report_name
     """
 }
 
