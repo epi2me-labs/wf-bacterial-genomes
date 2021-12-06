@@ -11,3 +11,4 @@ dependencies:
     - medaka ==1.3.2
     - pomoxis >=0.3.6
     - tensorflow ==2.2.*
+    - epi2melabs

@@ -1,39 +1,23 @@
 #!/usr/bin/env extflow
 
 nextflow.enable.dsl = 2
+import groovy.json.JsonBuilder
 
-def helpMessage(){
-    log.info """
-Haploid Variant Analysis Workflow
-
-Usage:
-    nextflow run epi2me-labs/wf-hap-snp [options]
-
-Options:
-    --fastq             DIR     Path to FASTQ directory (required)
-    --reference         FILE    Reference sequence FASTA file (required)
-    --out_dir           DIR     Path for output (default: $params.out_dir)
-    --medaka_model      STR     Medaka model name (default: $params.medaka_model)
-    --run_prokka        BOOL    Run prokka on consensus sequence (default: $params.run_prokka)
-    --prokka_opts       STR     Command-line arguments for prokka (default: $params.prokka_opts)
-    --report_name       STR     Optional report suffix (default: $params.report_name)
-
-"""
-}
-
+include { fastq_ingress } from './lib/fastqingress'
+include { start_ping; end_ping } from './lib/ping'
 
 process concatFastq {
     label "containerCPU"
     cpus 1
     input:
-        file "input"
+        tuple path(directory), val(sample_id), val(type)
     output:
         file "reads.fastq"
 
     shell:
     """
     # TODO: could do better here
-    fastcat -r summary.txt input/*.fastq* > reads.fastq
+    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} >  reads.fastq
     """
 }
 
@@ -163,15 +147,46 @@ process medakaConsensus {
 
 process runProkka {
     // run prokka in a basic way on the consensus sequence
-
     label "prokka"
     cpus 1
     input:
         file "consensus.fasta"
     output:
         file "prokka_results"
+        
     """
     prokka ${params.prokka_opts} --outdir prokka_results --prefix prokka consensus.fasta
+
+    """
+}
+
+
+process getVersions {
+    label "containerCPU"
+    cpus 1
+    output:
+        path "versions.txt"
+    script:
+    """
+    python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
+    fastcat --version | sed 's/^/fastcat,/' >> versions.txt
+    medaka --version | sed 's/ /,/' >> versions.txt
+    python -c "import pomoxis; print(f'pomoxis,{pomoxis}.__version__')" >> versions.txt
+    python -c "import tensorflow; print(f'tensorflow,{tensorflow}.__version__')" >> versions.txt
+    """
+}
+
+
+process getParams {
+    label "containerCPU"
+    cpus 1
+    output:
+        path "params.json"
+    script:
+        def paramsJSON = new JsonBuilder(params).toPrettyString()
+    """
+    # Output nextflow params object to JSON
+    echo '$paramsJSON' > params.json
     """
 }
 
@@ -184,13 +199,19 @@ process makeReport {
         file "read_summary.txt"
         file "align_summary.txt"
         tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
+        path "versions/*"
+        path "params.json"
+
     output:
         file "wf-hap-snps-*.html"
     script:
         report_name = "wf-hap-snps-" + params.report_name + '.html'
     """
     bcftools stats medaka.vcf.gz > variants.stats
-    report.py depth.txt read_summary.txt align_summary.txt variants.stats $report_name
+    report.py depth.txt read_summary.txt align_summary.txt variants.stats $report_name \
+        --versions versions \
+        --params params.json
+
     """
 }
 
@@ -231,17 +252,24 @@ workflow calling_pipeline {
         } else {
             prokka = Channel.empty()
         } 
-        report = makeReport(depth_stats, read_stats.stats, read_stats.summary, variants)
+        software_versions = getVersions()
+        workflow_params = getParams()
+        report = makeReport(depth_stats, read_stats.stats, read_stats.summary, variants,
+                            software_versions.collect(), workflow_params)
+        telemetry = workflow_params
     emit:
         consensus
         variants
         report
         prokka
+        telemetry
 }
 
 
 // entrypoint workflow
+WorkflowMain.initialise(workflow, params, log)
 workflow {
+    start_ping()
     if (params.help) {
         helpMessage()
         exit 1
@@ -253,8 +281,11 @@ workflow {
         println("`--fastq` and `--reference` are required")
         exit 1
     }
-    reads = channel.fromPath(params.fastq, type:'dir', checkIfExists:true)
+    samples = fastq_ingress(
+        params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
     reference = channel.fromPath(params.reference)
-    results = calling_pipeline(reads, reference)
+    results = calling_pipeline(samples, reference)
     output(results.consensus.concat(results.variants, results.report, results.prokka))
+    end_ping(calling_pipeline.out.telemetry)
+
 }
