@@ -5,6 +5,7 @@ import argparse
 
 from aplanat import annot, hist, lines, points, report
 from aplanat.components import bcfstats
+from aplanat.components import simple as scomponents
 from aplanat.util import Colors
 from bokeh.layouts import gridplot
 from bokeh.models import Panel, Tabs
@@ -20,6 +21,12 @@ def main():
     parser.add_argument("align_summary", help="Align statistics summary file.")
     parser.add_argument("bcf_stats", help="Output of bcftools stats")
     parser.add_argument("output", help="Report output filename")
+    parser.add_argument(
+        "--versions", required=True,
+        help="directory containing CSVs containing name,version.")
+    parser.add_argument(
+        "--params", default=None, required=True,
+        help="A JSON file containing the workflow parameter key/values")
     args = parser.parse_args()
 
     report_doc = report.HTMLReport(
@@ -69,7 +76,7 @@ This section displays basic QC metrics indicating read data quality.
     section = report_doc.add_section()
     section.markdown('''
 ### Genome coverage
-Plots below indicate depth of coverage of the coloured by amplicon pool.
+Plots below indicate depth of coverage, coloured by amplicon pool.
 For adequate variant calling depth should be at least 50X in any region.
 Forward reads are shown in light-blue, reverse reads are dark grey.
 ''')
@@ -117,6 +124,11 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
     # canned VCF stats report component
     section = report_doc.add_section()
     bcfstats.full_report(args.bcf_stats, report=section)
+
+    report_doc.add_section(
+        section=scomponents.version_table(args.versions))
+    report_doc.add_section(
+        section=scomponents.params_table(args.params))
 
     # Footer section
     section = report_doc.add_section()
