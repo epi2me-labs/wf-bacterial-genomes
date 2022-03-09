@@ -2,134 +2,259 @@
 """Create workflow report."""
 
 import argparse
+import base64
+import io
+import os
 
-from aplanat import annot, hist, lines, points, report
+
+from aplanat import lines, report
 from aplanat.components import bcfstats
+from aplanat.components import fastcat
 from aplanat.components import simple as scomponents
 from aplanat.util import Colors
-from bokeh.layouts import gridplot
+from Bio import SeqIO
+from bokeh.layouts import gridplot, layout
 from bokeh.models import Panel, Tabs
-import numpy as np
+from dna_features_viewer import BiopythonTranslator
 import pandas as pd
+
+
+# temp will move once aplanat ready
+def depth_coverage_mosdepth(
+        depth_file, xlim=(None, None), ylim=(None, None), **kwargs):
+    """Create a cumulative depth coverage plot per ref name.
+
+    :param depth_file: depth file output from mosdepth
+    :param xlim: tuple for plotting limits (start, end). A value None will
+        trigger calculation from the data.
+    :param ylim: tuple for plotting limits (start, end). A value None will
+        trigger calculation from the data.
+
+    :returns: a list of bokeh plots.
+    """
+    depth_file = pd.read_csv(depth_file, sep='\t')
+    depth_file.columns = ['ref', 'start', 'end', 'depth']
+    all_ref = dict(tuple(depth_file.groupby(['ref'])))
+    plots = []
+    for ref in sorted(all_ref):
+        depths = all_ref[ref]
+        plot = lines.steps(
+            list([depths['start']]), list([depths['depth']]),
+            colors=[Colors.cerulean], mode='after',
+            x_axis_label='Position along reference',
+            y_axis_label='Sequencing depth / Bases', title=str(ref), xlim=xlim,
+            ylim=ylim, **kwargs)
+        plot.xaxis.formatter.use_scientific = False
+        plots.append(plot)
+    return plots
+
+
+def depth_coverage_mosdepth_orientation(
+        fwd, rev, xlim=(None, None), ylim=(None, None), **kwargs):
+    """Create a cumulative depth coverage plot per ref name.
+
+    :param fwd: fwd depth file output from mosdepth
+    :param rev: rev depth file output from mosdepth
+    :param xlim: tuple for plotting limits (start, end). A value None will
+        trigger calculation from the data.
+    :param ylim: tuple for plotting limits (start, end). A value None will
+        trigger calculation from the data.
+
+    :returns: a list of bokeh plots.
+    """
+    depth_file = pd.read_csv(fwd, sep='\t')
+    depth_file.columns = ['ref', 'start', 'end', 'fwd']
+    rev_file = pd.read_csv(rev, sep='\t')
+    rev_file.columns = ['ref', 'start', 'end', 'rev']
+    depth_file['rev'] = rev_file['rev']
+    all_ref = dict(tuple(depth_file.groupby(['ref'])))
+    plots = []
+    for ref, depths in all_ref.items():
+        plot = lines.steps(
+            [list(depths['start']), list(depths['start'])],
+            [list(depths['fwd']), list(depths['rev'])],
+            colors=[Colors.cerulean, Colors.feldgrau], names=['fwd', 'rev'],
+            mode='after',  x_axis_label='Position along reference',
+            y_axis_label='Sequencing depth / Bases', title=str(ref),
+            xlim=xlim, ylim=ylim, **kwargs)
+        plot.xaxis.formatter.use_scientific = False
+        plots.append(plot)
+    return plots
+
+
+def read_files(summaries, **kwargs):
+    """Read a set of files and join to single dataframe."""
+    dfs = list()
+    for fname in sorted(summaries):
+        dfs.append(pd.read_csv(fname, **kwargs))
+    return pd.concat(dfs)
+
+
+def fig_to_base64(fig):
+    """Convert matplot lib fig to code."""
+    img = io.BytesIO()
+    fig.savefig(
+        img, format='png',
+        bbox_inches='tight')
+    img.seek(0)
+    return base64.b64encode(img.getvalue())
+
+
+def gene_plot(gbk_file, **kwargs):
+    """Create gene feature plot."""
+    color_map = {
+        "rep_origin": "yellow",
+        "CDS": Colors.cerulean,
+        "regulatory": "red",
+        "rRNA": Colors.light_cornflower_blue,
+        "misc_feature": "lightblue",
+        }
+    translator = BiopythonTranslator(
+        features_filters=(lambda f: f.type not in ["gene", "source"],),
+        features_properties=lambda f: {
+            "color": color_map.get(f.type, "white")})
+    record = translator.translate_record(gbk_file)
+    ax, _ = record.plot(
+        figure_width=300,
+        strand_in_label_threshold=30, **kwargs)
+    encoded = fig_to_base64(ax.figure)
+    plot = '<pre><img src="data:image/png;base64, {}"></pre>'.format(
+        encoded.decode('utf-8'))
+    return plot
+
+
+def gather_sample_files(sample_names):
+    """Check files exist for the report."""
+    sample_names.sort()
+    sample_files = {}
+    for sample_name in sample_names:
+        variants = os.path.join(
+            'variants', sample_name + '.variants.stats')
+        depth = os.path.join(
+            'total_depth', sample_name + '.total.regions.bed.gz')
+        stats = os.path.join(
+            'stats', sample_name + '.stats')
+        prokka = os.path.join('prokka', sample_name + '.prokka.gbk')
+        fwd = os.path.join('fwd', sample_name + '.fwd.regions.bed.gz')
+        rev = os.path.join('rev', sample_name + '.rev.regions.bed.gz')
+        expected_files = {
+            'depth_file': depth,
+            'variants_file': variants,
+            'prokka': prokka,
+            'stats': stats,
+            'fwd': fwd,
+            'rev': rev}
+        final_files = {
+            'depth_file': depth,
+            'variants_file': variants,
+            'prokka': prokka,
+            'stats': stats,
+            'fwd': fwd,
+            'rev': rev}
+        for name, file in expected_files.items():
+            if os.path.exists(file):
+                pass
+            else:
+                final_files[name] = 'None'
+                print('Missing {0} required for report for: {1}'.format(
+                    name, sample_name))
+        sample_files[sample_name] = final_files
+    return sample_files
 
 
 def main():
     """Run entry point."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("depth", help="Depth summary file.")
-    parser.add_argument("summary", help="Read statistics summary file.")
-    parser.add_argument("align_summary", help="Align statistics summary file.")
-    parser.add_argument("bcf_stats", help="Output of bcftools stats")
-    parser.add_argument("output", help="Report output filename")
+    parser = argparse.ArgumentParser(
+        'Visualise mapula output',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False)
+    parser.add_argument(
+        "--bcf_stats", nargs='+',
+        help="Output of bcftools stats")
+    parser.add_argument(
+        "--prokka", nargs='+', required=False,
+        help="Output of bcftools stats")
     parser.add_argument(
         "--versions", required=True,
         help="directory containing CSVs containing name,version.")
     parser.add_argument(
         "--params", default=None, required=True,
         help="A JSON file containing the workflow parameter key/values")
-    args = parser.parse_args()
+    parser.add_argument("--output", help="Report output filename")
+    parser.add_argument("--sample_ids", help="sample ids to make report")
+    parser.add_argument("--stats", nargs='+', help="fastcat stats")
 
+    args = parser.parse_args()
     report_doc = report.HTMLReport(
         "Haploid variant calling Summary Report",
         ("Results generated through the wf-hap-snp nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
+    if ('variants/OPTIONAL_FILE' not in args.bcf_stats):
+        report_doc.add_section().markdown(
+            "Analysis was completed using an alignment with the provided"
+            "reference and medaka was used for variant calling")
+    else:
+        report_doc.add_section().markdown(
+            "As no reference was provided the reads were assembled"
+            "and corrected using Flye and Medaka")
+    sample_names = pd.read_csv(
+        args.sample_ids, header=None).iloc[:, 0].drop_duplicates().tolist()
+    sample_files = gather_sample_files(sample_names)
 
-    section = report_doc.add_section()
-    section.markdown("""
-### Read Quality control
-This section displays basic QC metrics indicating read data quality.
-""")
+    for name, files in sample_files.items():
+        section = report_doc.add_section()
+        section.markdown("###" + str(name))
+        quality_df = pd.read_csv(files['stats'], sep='\t')
+        read_qual = fastcat.read_quality_plot(quality_df)
+        read_length = fastcat.read_length_plot(quality_df)
+        section = report_doc.add_section()
+        section.markdown("## Read Quality Control")
+        section.markdown(
+            "This sections displays basic QC",
+            " metrics indicating read data quality.")
+        section.plot(
+            layout(
+                [[read_length, read_qual]],
+                sizing_mode="stretch_width")
+                )
 
-    # read length summary
-    seq_summary = pd.read_csv(args.summary, sep='\t')
-    total_bases = seq_summary['read_length'].sum()
-    mean_length = total_bases / len(seq_summary)
-    median_length = np.median(seq_summary['read_length'])
-    datas = [seq_summary['read_length']]
-    length_hist = hist.histogram(
-        datas, colors=[Colors.cerulean], bins=100,
-        title="Read length distribution.",
-        x_axis_label='Read Length / bases',
-        y_axis_label='Number of reads',
-        xlim=(0, None))
-    length_hist = annot.subtitle(
-        length_hist,
-        "Mean: {:.0f}. Median: {:.0f}".format(
-            mean_length, median_length))
+        section = report_doc.add_section()
+        section.markdown("""
 
-    # read quality
-    datas = [seq_summary['acc']]
-    mean_q, median_q = np.mean(datas[0]), np.median(datas[0])
-    q_hist = hist.histogram(
-        datas, colors=[Colors.cerulean], bins=100,
-        title="Read quality (wrt reference sequence)",
-        x_axis_label="Read Quality",
-        y_axis_label="Number of reads",
-        xlim=(85, 100))
-    q_hist = annot.subtitle(
-        q_hist,
-        "Mean: {:.0f}. Median: {:.0f}".format(
-            mean_q, median_q))
-
-    section.plot(gridplot([[length_hist, q_hist]]))
-
-    section = report_doc.add_section()
-    section.markdown('''
-### Genome coverage
-Plots below indicate depth of coverage, coloured by amplicon pool.
+        ## Genome coverage
+Plots below indicate depth of coverage,
 For adequate variant calling depth should be at least 50X in any region.
 Forward reads are shown in light-blue, reverse reads are dark grey.
-''')
-    df = pd.read_csv(args.depth, sep='\t')
-    plots_orient = list()
-    plots_cover = list()
-    depth_lim = 50
-    for sample in sorted(df['rname'].unique()):
-        bc = df['rname'] == sample
-        depth = df[bc].groupby('pos')['depth'].sum()
-        depth_thresh = 100*(depth >= depth_lim).sum() / len(depth)
-
-        # fwd/rev
-        data = df[bc].groupby('pos').sum().reset_index()  # Is this necessary?
-        xs = [data['pos'], data['pos']]
-        ys = [data['depth_fwd'], data['depth_rev']]
-        plot = points.points(
-            xs, ys, colors=[Colors.light_cornflower_blue, Colors.feldgrau],
-            title="{}: {:.0f}X, {:.1f}% > {}X".format(
-                sample, depth.mean(), depth_thresh, depth_lim),
-            height=300, width=800,
-            x_axis_label='position', y_axis_label='depth',
-            ylim=(0, 300))
-        plots_orient.append(plot)
-
-        # cumulative coverage
-        xs = [data['depth'].sort_values(ascending=False)]
-        ys = [np.linspace(1, 100, len(data))]
-        plot = lines.line(
-            xs, ys, colors=[Colors.light_cornflower_blue],
-            title="{}: {:.0f}X, {:.1f}% > {}X".format(
-                sample, depth.mean(), depth_thresh, depth_lim),
-            height=300, width=800,
-            x_axis_label='Coverage / bases',
-            y_axis_label='%age of reference')
-        plots_cover.append(plot)
-
-    tab1 = Panel(
-        child=gridplot(plots_orient, ncols=1), title="Coverage traces")
-    tab2 = Panel(
-        child=gridplot(plots_cover, ncols=1), title="Proportions covered")
-    cover_panel = Tabs(tabs=[tab1, tab2])
-    section.plot(cover_panel)
-
+""")
+        plots_cover = depth_coverage_mosdepth(files['depth_file'])
+        plots_orient = depth_coverage_mosdepth_orientation(
+            files['fwd'], files['rev'])
+        tab1 = Panel(
+                child=gridplot(plots_orient, ncols=1),
+                title="Coverage traces")
+        tab2 = Panel(
+                child=gridplot(plots_cover, ncols=1),
+                title="Proportions covered")
+        cover_panel = Tabs(tabs=[tab1, tab2])
+        section.plot(cover_panel)
+        if ('variants/OPTIONAL_FILE' not in args.bcf_stats):
+            bcfstats.full_report(files['variants_file'], report=section)
+        if args.prokka:
+            record_dict = SeqIO.to_dict(
+                SeqIO.parse(files['prokka'], "genbank"))
+            for contig in sorted(record_dict):
+                seq_record = record_dict[contig]
+                plot = gene_plot(seq_record)
+                section = report_doc.add_section()
+                section.markdown('##' + str(seq_record.id))
+                section.markdown('length:' + str(len(seq_record.seq)))
+                section.plot(plot)
     # canned VCF stats report component
     section = report_doc.add_section()
-    bcfstats.full_report(args.bcf_stats, report=section)
-
     report_doc.add_section(
         section=scomponents.version_table(args.versions))
     report_doc.add_section(
         section=scomponents.params_table(args.params))
-
     # Footer section
     section = report_doc.add_section()
     section.markdown('''
@@ -140,7 +265,7 @@ assessment or to diagnose, treat, mitigate, cure or prevent any disease or
 condition.**
 
 This report was produced using the
-[epi2me-labs/wf-hap-snp](https://github.com/epi2me-labs/wf-hap-snp).  The
+[epi2me-labs/wf-hap-snp](https://github.com/epi2me-labs/wf-hap-snp). The
 workflow can be run using `nextflow epi2me-labs/wf-hap-snp --help`
 
 ---
