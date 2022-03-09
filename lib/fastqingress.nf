@@ -1,5 +1,5 @@
 process handleSingleFile {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         file reads
@@ -16,7 +16,7 @@ process handleSingleFile {
 
 
 process checkSampleSheet {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         file "sample_sheet.txt"
