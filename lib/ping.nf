@@ -1,6 +1,6 @@
 
 process pingMessage {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         val message

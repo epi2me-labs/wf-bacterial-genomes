@@ -1,15 +1,13 @@
-# Bacterial SNP calling Workflow
+# Bacterial genomes Workflow
 
-This repository contains a [nextflow](https://www.nextflow.io/) workflow
-performing haploid variant calling of whole genome data with
-[medaka](https://www.github.com/nanoporetech/medaka) from basecalls and a
-reference file. The workflow can optionally run
+This repository contains a [nextflow](https://www.nextflow.io/) workflow 
+for analysing bacterial genomes. If no reference is included assembly will be 
+completed using [flye](https://github.com/fenderglass/Flye) and polished with 
+[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided
+alignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)
+and variant called using medaka. The workflow can optionally run
 [prokka](https://github.com/tseemann/prokka) to annotate the resulting
 consensus sequence.
-
-> The pipeline is currently functional but contains little
-> configuration of minimap2, racon, and medaka beyond setting the
-> number of compute threads to use.
 
 ## Quickstart
 
@@ -31,7 +29,7 @@ For more information on running EPI2ME Labs workflows [visit out website](https:
 To obtain the workflow, having installed `nextflow`, users can run:
 
 ```
-nextflow run epi2me-labs/wf-hap-snps --help
+nextflow run epi2me-labs/wf-bacterial-genomes --help
 ```
 
 to see the options for the workflow.
@@ -41,7 +39,7 @@ to see the options for the workflow.
 The primary outputs of the workflow include:
 
 * a [FASTA](https://en.wikipedia.org/wiki/FASTA) consensus sequence scaffolded from a provided reference sequence,
-* a [VCF](https://en.wikipedia.org/wiki/Variant_Call_Format) file containing variants in the sample compared to the provided reference,
+* a [VCF](https://en.wikipedia.org/wiki/Variant_Call_Format) file containing variants in the sample compared to the reference (if provided),
 * an HTML report document detailing QC metrics and the primary findings of the workflow,
 * (optionally) an annotation of the consensus sequence using prokka.
 

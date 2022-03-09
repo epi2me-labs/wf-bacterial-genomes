@@ -1,4 +1,4 @@
-#!/usr/bin/env extflow
+#!/usr/bin/env nextflow
 
 nextflow.enable.dsl = 2
 import groovy.json.JsonBuilder
@@ -7,7 +7,7 @@ include { fastq_ingress } from './lib/fastqingress'
 include { start_ping; end_ping } from './lib/ping'
 
 process concatFastq {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple path(directory), val(sample_id), val(type)
@@ -25,7 +25,7 @@ process concatFastq {
 
 
 process readStats {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple val(sample_name), path(bam), path(bai)
@@ -42,7 +42,7 @@ process readStats {
 
 
 process coverStats {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 2
     input:
         tuple val(sample_name), path(bam), path(bai)
@@ -60,7 +60,7 @@ process coverStats {
 
 
 process deNovo {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus params.threads
     input:
         path reads
@@ -78,7 +78,7 @@ process deNovo {
 
 
 process alignReads {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus params.threads
     input:
         tuple val(sample_name), path(reads), file(reference)
@@ -95,7 +95,7 @@ process alignReads {
 process splitRegions {
     // split the bam reference sequences into overlapping sub-regions
 
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple val(sample_name), path(bam), path(bai)
@@ -124,7 +124,7 @@ process splitRegions {
 process medakaNetwork {
     // run medaka consensus for each region
 
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 2
     input:
         tuple val(sample_name), val(reg), path(bam), path(bai)
@@ -138,7 +138,7 @@ process medakaNetwork {
 
 process medakaVariant {
 
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
@@ -156,7 +156,7 @@ process medakaVariant {
 
 
 process medakaConsensus {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
@@ -191,7 +191,7 @@ process runProkka {
 
 
 process getVersions {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     output:
         path "versions.txt"
@@ -207,7 +207,7 @@ process getVersions {
 
 
 process getParams {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     output:
         path "params.json"
@@ -221,7 +221,7 @@ process getParams {
 
 
 process makeReport {
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     cpus 1
     input:
         path "versions/*"
@@ -256,7 +256,7 @@ process makeReport {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    label "wfhapsnps"
+    label "wfbacterialgenomes"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         file fname

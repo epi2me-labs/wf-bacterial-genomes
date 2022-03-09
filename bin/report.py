@@ -7,9 +7,9 @@ import io
 import os
 
 
-from aplanat import lines, report
+from aplanat import report
 from aplanat.components import bcfstats
-from aplanat.components import fastcat
+from aplanat.components import depthcoverage, fastcat
 from aplanat.components import simple as scomponents
 from aplanat.util import Colors
 from Bio import SeqIO
@@ -17,69 +17,6 @@ from bokeh.layouts import gridplot, layout
 from bokeh.models import Panel, Tabs
 from dna_features_viewer import BiopythonTranslator
 import pandas as pd
-
-
-# temp will move once aplanat ready
-def depth_coverage_mosdepth(
-        depth_file, xlim=(None, None), ylim=(None, None), **kwargs):
-    """Create a cumulative depth coverage plot per ref name.
-
-    :param depth_file: depth file output from mosdepth
-    :param xlim: tuple for plotting limits (start, end). A value None will
-        trigger calculation from the data.
-    :param ylim: tuple for plotting limits (start, end). A value None will
-        trigger calculation from the data.
-
-    :returns: a list of bokeh plots.
-    """
-    depth_file = pd.read_csv(depth_file, sep='\t')
-    depth_file.columns = ['ref', 'start', 'end', 'depth']
-    all_ref = dict(tuple(depth_file.groupby(['ref'])))
-    plots = []
-    for ref in sorted(all_ref):
-        depths = all_ref[ref]
-        plot = lines.steps(
-            list([depths['start']]), list([depths['depth']]),
-            colors=[Colors.cerulean], mode='after',
-            x_axis_label='Position along reference',
-            y_axis_label='Sequencing depth / Bases', title=str(ref), xlim=xlim,
-            ylim=ylim, **kwargs)
-        plot.xaxis.formatter.use_scientific = False
-        plots.append(plot)
-    return plots
-
-
-def depth_coverage_mosdepth_orientation(
-        fwd, rev, xlim=(None, None), ylim=(None, None), **kwargs):
-    """Create a cumulative depth coverage plot per ref name.
-
-    :param fwd: fwd depth file output from mosdepth
-    :param rev: rev depth file output from mosdepth
-    :param xlim: tuple for plotting limits (start, end). A value None will
-        trigger calculation from the data.
-    :param ylim: tuple for plotting limits (start, end). A value None will
-        trigger calculation from the data.
-
-    :returns: a list of bokeh plots.
-    """
-    depth_file = pd.read_csv(fwd, sep='\t')
-    depth_file.columns = ['ref', 'start', 'end', 'fwd']
-    rev_file = pd.read_csv(rev, sep='\t')
-    rev_file.columns = ['ref', 'start', 'end', 'rev']
-    depth_file['rev'] = rev_file['rev']
-    all_ref = dict(tuple(depth_file.groupby(['ref'])))
-    plots = []
-    for ref, depths in all_ref.items():
-        plot = lines.steps(
-            [list(depths['start']), list(depths['start'])],
-            [list(depths['fwd']), list(depths['rev'])],
-            colors=[Colors.cerulean, Colors.feldgrau], names=['fwd', 'rev'],
-            mode='after',  x_axis_label='Position along reference',
-            y_axis_label='Sequencing depth / Bases', title=str(ref),
-            xlim=xlim, ylim=ylim, **kwargs)
-        plot.xaxis.formatter.use_scientific = False
-        plots.append(plot)
-    return plots
 
 
 def read_files(summaries, **kwargs):
@@ -186,8 +123,8 @@ def main():
 
     args = parser.parse_args()
     report_doc = report.HTMLReport(
-        "Haploid variant calling Summary Report",
-        ("Results generated through the wf-hap-snp nextflow "
+        "Bacterial genomes Summary Report",
+        ("Results generated through the wf-bacterial-genomes nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
     if ('variants/OPTIONAL_FILE' not in args.bcf_stats):
         report_doc.add_section().markdown(
@@ -226,8 +163,8 @@ Plots below indicate depth of coverage,
 For adequate variant calling depth should be at least 50X in any region.
 Forward reads are shown in light-blue, reverse reads are dark grey.
 """)
-        plots_cover = depth_coverage_mosdepth(files['depth_file'])
-        plots_orient = depth_coverage_mosdepth_orientation(
+        plots_cover = depthcoverage.depth_coverage(files['depth_file'])
+        plots_orient = depthcoverage.depth_coverage_orientation(
             files['fwd'], files['rev'])
         tab1 = Panel(
                 child=gridplot(plots_orient, ncols=1),
@@ -265,8 +202,9 @@ assessment or to diagnose, treat, mitigate, cure or prevent any disease or
 condition.**
 
 This report was produced using the
-[epi2me-labs/wf-hap-snp](https://github.com/epi2me-labs/wf-hap-snp). The
-workflow can be run using `nextflow epi2me-labs/wf-hap-snp --help`
+[epi2me-labs/wf-bacterial-genomes]
+(https://github.com/epi2me-labs/wf-bacterial-genomes). The
+workflow can be run using `nextflow epi2me-labs/wf-bacterial-genomes --help`
 
 ---
 ''')

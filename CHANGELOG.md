@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Option to add suffix to HTML report name.
+- Visualisation of prokka output.
+- Choice of de novo assembly or alignment.
+- Supports multibarcodes
+### Updated
+- Medaka version.
+- Depth coverage graphs.
+- Use mosdepth and fastcat. 
 
 ## [v0.2.1]
 ### Changed
