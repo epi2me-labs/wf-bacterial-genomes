@@ -1,5 +1,5 @@
 process handleSingleFile {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
         file reads
@@ -16,7 +16,7 @@ process handleSingleFile {
 
 
 process checkSampleSheet {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
         file "sample_sheet.txt"

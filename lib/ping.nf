@@ -1,6 +1,6 @@
 
 process pingMessage {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
         val message

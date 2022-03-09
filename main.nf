@@ -7,32 +7,33 @@ include { fastq_ingress } from './lib/fastqingress'
 include { start_ping; end_ping } from './lib/ping'
 
 process concatFastq {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
         tuple path(directory), val(sample_id), val(type)
     output:
-        file "reads.fastq"
-
+        path "*reads.fastq"
+        path "*stats*", emit: stats
+        env SAMPLE_ID, emit: sample_id
     shell:
     """
     # TODO: could do better here
-    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} >  reads.fastq
+    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} >  ${sample_id}.reads.fastq
+    SAMPLE_ID="${sample_id}"
     """
 }
 
 
 process readStats {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
-        tuple file("alignments.bam"), file("alignments.bam.bai")
+        tuple val(sample_name), path(bam), path(bai)
     output:
-        path "readstats.txt", emit: stats
-        path "mapsummary.txt", emit: summary
+        path "*readstats.txt", emit: stats
     """
-    stats_from_bam -s mapsummary.txt -o readstats.txt alignments.bam
-    if [[ \$(wc -l <readstats.txt) -le 1 ]]; then
+    bamstats $bam > ${bam.simpleName}.readstats.txt
+    if [[ \$(wc -l <${bam.simpleName}.readstats.txt) -le 1 ]]; then
         echo "No alignments of reads to reference sequence found."
         exit 1
     fi
@@ -41,29 +42,52 @@ process readStats {
 
 
 process coverStats {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 2
     input:
-        tuple file("alignments.bam"), file("alignments.bam.bai")
+        tuple val(sample_name), path(bam), path(bai)
     output:
-        file "depth.txt"
+        path "*fwd.regions.bed.gz", emit: fwd
+        path "*rev.regions.bed.gz", emit: rev
+        path "*total.regions.bed.gz", emit: all
+
     """
-    coverage_from_bam --one_file depth.txt --stride 100 alignments.bam
+    mosdepth -n --fast-mode --by 200 --flag 16 -t $task.cpus ${sample_name}.fwd $bam
+    mosdepth -n --fast-mode --by 200 --include-flag 16 -t $task.cpus ${sample_name}.rev $bam
+    mosdepth -n --fast-mode --by 200 -t $task.cpus ${sample_name}.total $bam
+    """
+}
+
+
+process deNovo {
+    label "wfhapsnps"
+    cpus params.threads
+    input:
+        path reads
+    output:
+        path "*.fasta.gz" 
+    script:
+        sample_name = reads.simpleName
+        //mv output/00-assembly/draft_assembly.fasta ./${sample_name}.draft_assembly.fasta
+    """
+    flye --nano-raw $reads --genome-size $params.genome_size --out-dir output --threads $task.cpus
+    mv output/assembly.fasta ./${sample_name}.draft_assembly.fasta
+    bgzip ${sample_name}.draft_assembly.fasta
     """
 }
 
 
 process alignReads {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus params.threads
     input:
-        file reads
-        file reference
+        tuple val(sample_name), path(reads), file(reference)
     output:
-        tuple file("reads2ref.bam"), file("reads2ref.bam.bai")
-
+        tuple val("$sample_name"), path("*reads2ref.bam"), path("*reads2ref.bam.bai")
+    script:
+        sample_name = reads.simpleName
     """
-    mini_align -i $reads -r $reference -p reads2ref -t $task.cpus -m
+    mini_align -i $reads -r $reference -p ${reads.simpleName}.reads2ref -t $task.cpus -m
     """
 }
 
@@ -71,10 +95,10 @@ process alignReads {
 process splitRegions {
     // split the bam reference sequences into overlapping sub-regions
 
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
-        tuple file(bam), file(bai)
+        tuple val(sample_name), path(bam), path(bai)
     output:
         stdout
     """
@@ -86,8 +110,9 @@ process splitRegions {
     regions = itertools.chain.from_iterable(
         x.split($params.chunk_size, overlap=1000, fixed_size=False)
         for x in medaka.common.get_bam_regions("$bam"))
+    region_list = []
     for reg in regions:
-        print(reg)
+        print("$sample_name" + '.' + str(reg))
     """
 }
 
@@ -99,48 +124,49 @@ process splitRegions {
 process medakaNetwork {
     // run medaka consensus for each region
 
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 2
     input:
-        tuple file(bam), file(bai)
-        each reg
+        tuple val(sample_name), val(reg), path(bam), path(bai)
     output:
-        file "consensus_probs.hdf"
+        tuple val("$sample_name"), path("*consensus_probs.hdf")
     """
-    medaka consensus $bam consensus_probs.hdf --threads 2 --model $params.medaka_model --region "$reg"
+    medaka consensus $bam ${sample_name}.${task.index}.consensus_probs.hdf --threads 2 --model $params.medaka_model --region "$reg"
     """
 }
 
 
 process medakaVariant {
-    label "containerCPU"
+
+    label "wfhapsnps"
     cpus 1
     input:
-        file "consensus_probs_*.hdf"
-        tuple file(bam), file(bai)
-        file reference
+        tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
     output:
-        tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
+        path "*medaka.vcf.gz", emit: variants
+        path '*.variants.stats', emit: variant_stats
     """
-    medaka variant $reference consensus_probs_*.hdf vanilla.vcf
-    medaka tools annotate vanilla.vcf $reference $bam medaka.vcf
-    bgzip -i medaka.vcf
+    medaka variant $reference *consensus_probs.hdf vanilla.vcf
+    medaka tools annotate vanilla.vcf $reference $bam ${sample_name}.medaka.vcf
+    bgzip -i ${sample_name}.medaka.vcf
+    bcftools stats  ${sample_name}.medaka.vcf.gz > ${sample_name}.variants.stats
     """
 }
 
 
+
 process medakaConsensus {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
-        file "consensus_probs_*.hdf"
-        file reference
+        tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
+   
     output:
-        file "medaka.fasta.gz"
+        path "*medaka.fasta.gz"
 
     """
-    medaka stitch --threads $task.cpus consensus_probs_*.hdf $reference medaka.fasta
-    bgzip medaka.fasta
+    medaka stitch --threads $task.cpus $consensus_hdf $reference ${sample_name}.medaka.fasta
+    bgzip ${sample_name}.medaka.fasta
     """
 }
 
@@ -148,21 +174,24 @@ process medakaConsensus {
 process runProkka {
     // run prokka in a basic way on the consensus sequence
     label "prokka"
-    cpus 1
+    cpus params.threads
     input:
-        file "consensus.fasta"
+        path consensus
     output:
-        file "prokka_results"
+        path "*prokka_results/*prokka.gbk"
+    script:
+        sample_name = "${consensus.simpleName}"
         
     """
-    prokka ${params.prokka_opts} --outdir prokka_results --prefix prokka consensus.fasta
-
+    echo $sample_name
+    gunzip -rf $consensus
+    prokka ${params.prokka_opts} --outdir ${sample_name}.prokka_results --cpus $task.cpus --prefix ${sample_name}.prokka *medaka.fasta
     """
 }
 
 
 process getVersions {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     output:
         path "versions.txt"
@@ -178,7 +207,7 @@ process getVersions {
 
 
 process getParams {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     output:
         path "params.json"
@@ -192,25 +221,31 @@ process getParams {
 
 
 process makeReport {
-    label "containerCPU"
+    label "wfhapsnps"
     cpus 1
     input:
-        file "depth.txt"
-        file "read_summary.txt"
-        file "align_summary.txt"
-        tuple path("medaka.vcf.gz"), path("medaka.vcf.gz.gzi")
         path "versions/*"
-        path "params.json"
-
+        file "params.json"
+        path "variants/*"
+        path sample_ids
+        path "prokka/*"
+        path "stats/*"
+        path "fwd/*"
+        path "rev/*"
+        path "total_depth/*"
     output:
-        file "wf-hap-snps-*.html"
+        path "wf-hap-snps-*.html"
     script:
         report_name = "wf-hap-snps-" + params.report_name + '.html'
+        prokka = params.run_prokka as Boolean ? "--prokka prokka/*" : ""
     """
-    bcftools stats medaka.vcf.gz > variants.stats
-    report.py depth.txt read_summary.txt align_summary.txt variants.stats $report_name \
-        --versions versions \
-        --params params.json
+    report.py --bcf_stats variants/* \
+    $prokka \
+    --versions versions \
+    --params params.json \
+    --sample_ids $sample_ids \
+    --output $report_name \
+    --stats stats/*
 
     """
 }
@@ -221,17 +256,29 @@ process makeReport {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    label "containerCPU"
+    label "wfhapsnps"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         file fname
     output:
         file fname
     """
-    echo "Writing output files"
+    echo "Writing output files" 
     """
 }
 
+
+def groupIt(ch) {
+    return ch.map { it -> return tuple(it.split(/\./)[0], it.split(/\./)[1]) }
+}
+
+def nameIt(ch) {
+    return ch.map { it -> return tuple(it.simpleName, it)}
+}
+
+def refTuple(ch) {
+    return ch.map { it -> return tuple(it[0], it[2])}
+}
 
 // modular workflow
 workflow calling_pipeline {
@@ -239,14 +286,42 @@ workflow calling_pipeline {
         reads
         reference
     main:
+      
+
         reads = concatFastq(reads)
-        alignments = alignReads(reads, reference)
+        if (!reference){
+            ref  = deNovo(reads[0])
+            println("No reference provided assuming De Novo.")
+            named_refs = nameIt(ref)
+            named_reads = nameIt(reads[0])
+            refs_reads_groups = named_reads.join(named_refs)
+            alignments = alignReads(refs_reads_groups)
+            vcf_variant = Channel.empty()
+            variants = Channel.empty()
+        }
+        else{
+            references = channel.fromPath(params.reference)
+            named_reads = nameIt(reads[0])
+            ref_reads_groups = named_reads.combine(references)
+            alignments = alignReads(ref_reads_groups)
+            named_refs = refTuple(ref_reads_groups)
+            
+        }
+     
+        sample_ids = reads.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
         regions = splitRegions(alignments).splitText()
-        hdfs = medakaNetwork(alignments, regions).collect()
-        consensus = medakaConsensus(hdfs, reference)
-        variants = medakaVariant(hdfs, alignments, reference)
+        named_regions = groupIt(regions)
+        regions_bams = named_regions.combine(alignments, by: [0])
+        hdfs = medakaNetwork(regions_bams)
+        hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
+        consensus = medakaConsensus(hdfs_grouped)
+        if (reference){
+            variant = medakaVariant(hdfs_grouped)
+            variants = variant.variant_stats
+            vcf_variant = variant.variants
+        }
         if (params.run_prokka) {
             prokka = runProkka(consensus)
         } else {
@@ -254,12 +329,22 @@ workflow calling_pipeline {
         } 
         software_versions = getVersions()
         workflow_params = getParams()
-        report = makeReport(depth_stats, read_stats.stats, read_stats.summary, variants,
-                            software_versions.collect(), workflow_params)
+     
+        report = makeReport(
+                            software_versions.collect(), 
+                            workflow_params, 
+                            variants.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                            sample_ids, 
+                            prokka.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
+                            reads.stats.collect(),
+                            depth_stats.fwd.collect(),
+                            depth_stats.rev.collect(),
+                            depth_stats.all.collect())
         telemetry = workflow_params
     emit:
-        consensus
+        vcf_variant
         variants
+        consensus
         report
         prokka
         telemetry
@@ -275,17 +360,17 @@ workflow {
         exit 1
     }
 
-    if (!params.fastq or !params.reference) {
+    if (!params.fastq) {
         helpMessage()
         println("")
-        println("`--fastq` and `--reference` are required")
+        println("`--fastq` is required and --reference is required when performing variant calling")
         exit 1
     }
     samples = fastq_ingress(
         params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
-    reference = channel.fromPath(params.reference)
+    reference = params.reference
     results = calling_pipeline(samples, reference)
-    output(results.consensus.concat(results.variants, results.report, results.prokka))
+    output(results.consensus.concat(results.report, results.prokka, results.variants))
     end_ping(calling_pipeline.out.telemetry)
 
 }

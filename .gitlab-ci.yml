@@ -1,13 +1,15 @@
 include:
     - project: "epi2melabs/ci-templates"
+      ref: "nextflow-edge-version"
       file: "wf-containers.yaml"
 
+
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/ --reference test_data/ref/reference.subseq.fa.gz --threads 4"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4"
 
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
-release-centrifuge:
+release-prokka:
     extends: .aux-container
     variables:
         AUX_IMAGE_NAME: "prokka"
