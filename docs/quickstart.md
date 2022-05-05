@@ -1,15 +1,3 @@
-# Bacterial genomes Workflow
-
-This repository contains a [nextflow](https://www.nextflow.io/) workflow 
-for analysing bacterial genomes. # Introduction
-
-If no reference is included assembly will be 
-completed using [flye](https://github.com/fenderglass/Flye) and polished with 
-[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided
-alignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)
-and variant called using medaka. The workflow can optionally run
-[prokka](https://github.com/tseemann/prokka) to annotate the resulting
-consensus sequence.
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and 
@@ -43,8 +31,3 @@ The primary outputs of the workflow include:
 * a [VCF](https://en.wikipedia.org/wiki/Variant_Call_Format) file containing variants in the sample compared to the reference (if provided),
 * an HTML report document detailing QC metrics and the primary findings of the workflow,
 * (optionally) an annotation of the consensus sequence using prokka.
-## Useful links
-
-* [nextflow](https://www.nextflow.io/)
-* [docker](https://www.docker.com/products/docker-desktop)
-* [conda](https://docs.conda.io/en/latest/miniconda.html)

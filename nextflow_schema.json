@@ -162,5 +162,9 @@
         {
             "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "docs": {
+        "intro": "# Introduction\n\nIf no reference is included assembly will be \ncompleted using [flye](https://github.com/fenderglass/Flye) and polished with \n[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided\nalignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\nand variant called using medaka. The workflow can optionally run\n[prokka](https://github.com/tseemann/prokka) to annotate the resulting\nconsensus sequence.\n",
+        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [conda](https://docs.conda.io/en/latest/miniconda.html)"
+    }
 }
