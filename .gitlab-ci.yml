@@ -1,6 +1,5 @@
 include:
     - project: "epi2melabs/ci-templates"
-      ref: "nextflow-edge-version"
       file: "wf-containers.yaml"
 
 
