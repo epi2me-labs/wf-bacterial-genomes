@@ -234,9 +234,9 @@ process makeReport {
         path "rev/*"
         path "total_depth/*"
     output:
-        path "wf-hap-snps-*.html"
+        path "wf-bacterial-genomes-*.html"
     script:
-        report_name = "wf-hap-snps-" + params.report_name + '.html'
+        report_name = "wf-bacterial-genomes-" + params.report_name + '.html'
         prokka = params.run_prokka as Boolean ? "--prokka prokka/*" : ""
     """
     report.py --bcf_stats variants/* \
