@@ -366,8 +366,14 @@ workflow {
         println("`--fastq` is required and --reference is required when performing variant calling")
         exit 1
     }
-    samples = fastq_ingress(
-        params.fastq, params.out_dir, params.sample, params.sample_sheet, params.sanitize_fastq)
+
+    samples = fastq_ingress([
+        "input":params.fastq,
+        "sample":params.sample,
+        "sample_sheet":params.sample_sheet,
+        "sanitize": params.sanitize_fastq,
+        "output":params.out_dir])
+
     reference = params.reference
     results = calling_pipeline(samples, reference)
     output(results.consensus.concat(results.report, results.prokka, results.variants))
