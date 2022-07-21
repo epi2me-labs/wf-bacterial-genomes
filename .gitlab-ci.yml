@@ -5,7 +5,7 @@ include:
 
 variables:
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4"
-    NF_IGNORE_PROCESSES: "nameFastq, deNovo"
+    NF_IGNORE_PROCESSES: "deNovo"
 
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
