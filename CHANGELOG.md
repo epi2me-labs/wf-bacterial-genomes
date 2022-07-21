@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changes
 - Better help text on cli
+- Fastqingress metadata map
 
 ## [v0.2.4]
 ### Fixed

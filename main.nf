@@ -10,16 +10,16 @@ process concatFastq {
     label "wfbacterialgenomes"
     cpus 1
     input:
-        tuple path(directory), val(sample_id), val(type)
+        tuple path(directory), val(meta)
     output:
         path "*reads.fastq"
         path "*stats*", emit: stats
-        env SAMPLE_ID, emit: sample_id
+        env SAMPLE_ID, emit: meta.sample_id
     shell:
     """
     # TODO: could do better here
-    fastcat -s ${sample_id} -r ${sample_id}.stats -x ${directory} >  ${sample_id}.reads.fastq
-    SAMPLE_ID="${sample_id}"
+    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} >  ${meta.sample_id}.reads.fastq
+    SAMPLE_ID="${meta.sample_id}"
     """
 }
 
@@ -65,7 +65,7 @@ process deNovo {
     input:
         path reads
     output:
-        path "*.fasta.gz" 
+        path "*.fasta.gz"
     script:
         sample_name = reads.simpleName
         //mv output/00-assembly/draft_assembly.fasta ./${sample_name}.draft_assembly.fasta
@@ -160,7 +160,7 @@ process medakaConsensus {
     cpus 1
     input:
         tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
-   
+
     output:
         path "*medaka.fasta.gz"
 
@@ -181,7 +181,7 @@ process runProkka {
         path "*prokka_results/*prokka.gbk"
     script:
         sample_name = "${consensus.simpleName}"
-        
+
     """
     echo $sample_name
     gunzip -rf $consensus
@@ -263,7 +263,7 @@ process output {
     output:
         file fname
     """
-    echo "Writing output files" 
+    echo "Writing output files"
     """
 }
 
@@ -286,7 +286,7 @@ workflow calling_pipeline {
         reads
         reference
     main:
-      
+
 
         reads = concatFastq(reads)
         if (!reference){
@@ -305,9 +305,9 @@ workflow calling_pipeline {
             ref_reads_groups = named_reads.combine(references)
             alignments = alignReads(ref_reads_groups)
             named_refs = refTuple(ref_reads_groups)
-            
+
         }
-     
+
         sample_ids = reads.sample_id.collectFile(name: 'sample_ids.csv', newLine: true)
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
@@ -326,15 +326,15 @@ workflow calling_pipeline {
             prokka = runProkka(consensus)
         } else {
             prokka = Channel.empty()
-        } 
+        }
         software_versions = getVersions()
         workflow_params = getParams()
-     
+
         report = makeReport(
-                            software_versions.collect(), 
-                            workflow_params, 
+                            software_versions.collect(),
+                            workflow_params,
                             variants.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
-                            sample_ids, 
+                            sample_ids,
                             prokka.collect().ifEmpty(file("$projectDir/data/OPTIONAL_FILE")),
                             reads.stats.collect(),
                             depth_stats.fwd.collect(),
