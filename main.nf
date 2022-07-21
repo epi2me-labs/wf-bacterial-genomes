@@ -14,7 +14,7 @@ process concatFastq {
     output:
         path "*reads.fastq"
         path "*stats*", emit: stats
-        env SAMPLE_ID, emit: meta.sample_id
+        env SAMPLE_ID, emit: sample_id
     shell:
     """
     # TODO: could do better here
