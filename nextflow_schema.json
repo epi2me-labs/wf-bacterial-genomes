@@ -20,6 +20,7 @@
                 "out_dir": {
                     "type": "string",
                     "default": "output",
+                    "format": "directory-path",
                     "description": "Path for output"
                 },
                 "sample_sheet": {
