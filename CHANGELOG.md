@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changes
 - Better help text on cli
 - Fastqingress metadata map
+### Fixes
+- Output medaka vcf
+- Remove reliance on simpleName
 
 ## [v0.2.4]
 ### Fixed
