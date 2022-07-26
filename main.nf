@@ -12,7 +12,7 @@ process concatFastq {
     input:
         tuple path(directory), val(meta)
     output:
-        path "*reads.fastq"
+        tuple val(meta.sample_id), path("*reads.fastq"), emit: read
         path "*stats*", emit: stats
         env SAMPLE_ID, emit: sample_id
     shell:
@@ -32,8 +32,8 @@ process readStats {
     output:
         path "*readstats.txt", emit: stats
     """
-    bamstats $bam > ${bam.simpleName}.readstats.txt
-    if [[ \$(wc -l <${bam.simpleName}.readstats.txt) -le 1 ]]; then
+    bamstats $bam > "${sample_name}".readstats.txt
+    if [[ \$(wc -l <"${sample_name}".readstats.txt) -le 1 ]]; then
         echo "No alignments of reads to reference sequence found."
         exit 1
     fi
@@ -63,16 +63,14 @@ process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
     input:
-        path reads
+        tuple val(sample_name), path(reads)
     output:
-        path "*.fasta.gz"
-    script:
-        sample_name = reads.simpleName
+        tuple val("${sample_name}"), path("*.fastq.gz")
         //mv output/00-assembly/draft_assembly.fasta ./${sample_name}.draft_assembly.fasta
     """
     flye --nano-raw $reads --genome-size $params.genome_size --out-dir output --threads $task.cpus
-    mv output/assembly.fasta ./${sample_name}.draft_assembly.fasta
-    bgzip ${sample_name}.draft_assembly.fasta
+    mv output/assembly.fasta ./"${sample_name}".draft_assembly.fasta
+    bgzip "${sample_name}".draft_assembly.fasta
     """
 }
 
@@ -84,10 +82,8 @@ process alignReads {
         tuple val(sample_name), path(reads), file(reference)
     output:
         tuple val("$sample_name"), path("*reads2ref.bam"), path("*reads2ref.bam.bai")
-    script:
-        sample_name = reads.simpleName
     """
-    mini_align -i $reads -r $reference -p ${reads.simpleName}.reads2ref -t $task.cpus -m
+    mini_align -i $reads -r $reference -p ${sample_name}.reads2ref -t $task.cpus -m
     """
 }
 
@@ -112,7 +108,7 @@ process splitRegions {
         for x in medaka.common.get_bam_regions("$bam"))
     region_list = []
     for reg in regions:
-        print("$sample_name" + '.' + str(reg))
+        print("$sample_name" + '&split!' + str(reg))
     """
 }
 
@@ -160,13 +156,12 @@ process medakaConsensus {
     cpus 1
     input:
         tuple val(sample_name), path(consensus_hdf),  path(bam), path(bai), path(reference)
-
     output:
-        path "*medaka.fasta.gz"
+        tuple val(sample_name), path("*medaka.fasta.gz")
 
     """
-    medaka stitch --threads $task.cpus $consensus_hdf $reference ${sample_name}.medaka.fasta
-    bgzip ${sample_name}.medaka.fasta
+    medaka stitch --threads $task.cpus $consensus_hdf $reference "${sample_name}".medaka.fasta
+    bgzip "${sample_name}".medaka.fasta
     """
 }
 
@@ -176,16 +171,15 @@ process runProkka {
     label "prokka"
     cpus params.threads
     input:
-        path consensus
+        tuple val(sample_name), path(consensus)
     output:
         path "*prokka_results/*prokka.gbk"
     script:
-        sample_name = "${consensus.simpleName}"
-
+        def prokka_opts = "${params.prokka_opts}" == null ? "${params.prokka_opts}" : ""
     """
     echo $sample_name
     gunzip -rf $consensus
-    prokka ${params.prokka_opts} --outdir ${sample_name}.prokka_results --cpus $task.cpus --prefix ${sample_name}.prokka *medaka.fasta
+    prokka $prokka_opts --outdir "${sample_name}".prokka_results --cpus $task.cpus --prefix "${sample_name}".prokka *medaka.fasta
     """
 }
 
@@ -195,7 +189,6 @@ process getVersions {
     cpus 1
     output:
         path "versions.txt"
-    script:
     """
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
@@ -269,11 +262,7 @@ process output {
 
 
 def groupIt(ch) {
-    return ch.map { it -> return tuple(it.split(/\./)[0], it.split(/\./)[1]) }
-}
-
-def nameIt(ch) {
-    return ch.map { it -> return tuple(it.simpleName, it)}
+    return ch.map { it -> return tuple(it.split(/&split!/)[0], it.split(/&split!/)[1]) }
 }
 
 def refTuple(ch) {
@@ -286,14 +275,11 @@ workflow calling_pipeline {
         reads
         reference
     main:
-
-
         reads = concatFastq(reads)
         if (!reference){
-            ref  = deNovo(reads[0])
+            ref  = deNovo(reads.read)
             println("No reference provided assuming De Novo.")
-            named_refs = nameIt(ref)
-            named_reads = nameIt(reads[0])
+            named_reads = ref.out
             refs_reads_groups = named_reads.join(named_refs)
             alignments = alignReads(refs_reads_groups)
             vcf_variant = Channel.empty()
@@ -301,7 +287,7 @@ workflow calling_pipeline {
         }
         else{
             references = channel.fromPath(params.reference)
-            named_reads = nameIt(reads[0])
+            named_reads = reads.read
             ref_reads_groups = named_reads.combine(references)
             alignments = alignReads(ref_reads_groups)
             named_refs = refTuple(ref_reads_groups)
@@ -313,6 +299,7 @@ workflow calling_pipeline {
         depth_stats = coverStats(alignments)
         regions = splitRegions(alignments).splitText()
         named_regions = groupIt(regions)
+        
         regions_bams = named_regions.combine(alignments, by: [0])
         hdfs = medakaNetwork(regions_bams)
         hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
@@ -341,12 +328,13 @@ workflow calling_pipeline {
                             depth_stats.rev.collect(),
                             depth_stats.all.collect())
         telemetry = workflow_params
+        all_out = variants.concat(vcf_variant,
+                      consensus.map {it -> it[1]},
+                      report,
+                      prokka)
+        
     emit:
-        vcf_variant
-        variants
-        consensus
-        report
-        prokka
+        all_out
         telemetry
 }
 
@@ -376,7 +364,7 @@ workflow {
 
     reference = params.reference
     results = calling_pipeline(samples, reference)
-    output(results.consensus.concat(results.report, results.prokka, results.variants))
+    output(results.all_out)
     end_ping(calling_pipeline.out.telemetry)
 
 }
