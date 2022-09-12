@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 import groovy.json.JsonBuilder
 
 include { fastq_ingress } from './lib/fastqingress'
-include { start_ping; end_ping } from './lib/ping'
+
 
 process concatFastq {
     label "wfbacterialgenomes"
@@ -342,7 +342,14 @@ workflow calling_pipeline {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    start_ping()
+
+    if (params.disable_ping == false) {
+        try { 
+            Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
+        } catch(RuntimeException e1) {
+        }
+    }
+    
     if (params.help) {
         helpMessage()
         exit 1
@@ -365,6 +372,22 @@ workflow {
     reference = params.reference
     results = calling_pipeline(samples, reference)
     output(results.all_out)
-    end_ping(calling_pipeline.out.telemetry)
+    
 
+}
+
+if (params.disable_ping == false) {
+    workflow.onComplete {
+        try{
+            Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
+    
+    workflow.onError {
+        try{
+            Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
+        }catch(RuntimeException e1) {
+        }
+    }
 }
