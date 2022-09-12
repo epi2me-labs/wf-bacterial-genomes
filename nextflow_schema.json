@@ -14,7 +14,8 @@
             "properties": {
                 "fastq": {
                     "type": "string",
-                    "format": "path",
+                    "format": "file-path",
+                    "demo_data": "${projectDir}/test_data/fastq",
                     "description": "Path to FASTQ directory. Can be either a single file or contain multiple directories."
                 },
                 "out_dir": {
@@ -52,6 +53,8 @@
                 },
                 "reference": {
                     "type": "string",
+                    "format": "file-path",
+                    "demo_data": "${projectDir}/test_data/ref",
                     "description": "Reference sequence FASTA file. If provided this will be used to perform variant calling with Medaka. If not given the denovo assembly will be performed with Flye and Medaka."
                 }
             },
