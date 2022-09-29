@@ -8,6 +8,23 @@ variables:
     NF_IGNORE_PROCESSES: "deNovo"
 
 
+docker-run:
+    parallel:
+        matrix:
+            - MATRIX_NAME: [
+                "reference-based", "de-novo"]
+    rules:
+        - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
+          when: never
+        - if: $MATRIX_NAME == "reference-based"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4"
+              NF_IGNORE_PROCESSES: "deNovo"
+        - if: $MATRIX_NAME == "de-novo"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4"
+              NF_IGNORE_PROCESSES: "medakaVariant"
+
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
     extends: .aux-container
