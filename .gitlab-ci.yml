@@ -4,7 +4,8 @@ include:
 
 
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4"
+    # chunk_size here forces multiple chunks even for test data which better exercises some channels
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
     NF_IGNORE_PROCESSES: "deNovo"
 
 
@@ -18,11 +19,11 @@ docker-run:
           when: never
         - if: $MATRIX_NAME == "reference-based"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "deNovo"
         - if: $MATRIX_NAME == "de-novo"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "medakaVariant"
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
