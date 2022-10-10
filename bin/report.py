@@ -106,11 +106,11 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False)
     parser.add_argument(
-        "--bcf_stats", nargs='+',
-        help="Output of bcftools stats")
+        "--denovo", action="store_true",
+        help="Analysis performed de-novo assembly (or variant calling).")
     parser.add_argument(
-        "--prokka", nargs='+', required=False,
-        help="Output of bcftools stats")
+        "--prokka", action="store_true",
+        help="Prokka analysis was performed.")
     parser.add_argument(
         "--versions", required=True,
         help="directory containing CSVs containing name,version.")
@@ -118,15 +118,15 @@ def main():
         "--params", default=None, required=True,
         help="A JSON file containing the workflow parameter key/values")
     parser.add_argument("--output", help="Report output filename")
-    parser.add_argument("--sample_ids", help="sample ids to make report")
-    parser.add_argument("--stats", nargs='+', help="fastcat stats")
+    parser.add_argument("--stats", help="directory containing fastcat stats")
+    parser.add_argument("--sample_ids", nargs="+")
 
     args = parser.parse_args()
     report_doc = report.HTMLReport(
         "Bacterial genomes Summary Report",
         ("Results generated through the wf-bacterial-genomes nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
-    if ('variants/OPTIONAL_FILE' not in args.bcf_stats):
+    if not args.denovo:
         report_doc.add_section().markdown(
             "Analysis was completed using an alignment with the provided"
             "reference and medaka was used for variant calling")
@@ -134,9 +134,7 @@ def main():
         report_doc.add_section().markdown(
             "As no reference was provided the reads were assembled"
             "and corrected using Flye and Medaka")
-    sample_names = pd.read_csv(
-        args.sample_ids, header=None).iloc[:, 0].drop_duplicates().tolist()
-    sample_files = gather_sample_files(sample_names)
+    sample_files = gather_sample_files(args.sample_ids)
 
     for name, files in sample_files.items():
         section = report_doc.add_section()
@@ -174,7 +172,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
                 title="Proportions covered")
         cover_panel = Tabs(tabs=[tab1, tab2])
         section.plot(cover_panel)
-        if ('variants/OPTIONAL_FILE' not in args.bcf_stats):
+        if not args.denovo:
             bcfstats.full_report(files['variants_file'], report=section)
         if args.prokka:
             record_dict = SeqIO.to_dict(
