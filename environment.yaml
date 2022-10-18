@@ -16,3 +16,4 @@ dependencies:
     - dna_features_viewer
     - bcbio-gff
     - mosdepth
+    - quast >=5.2.0

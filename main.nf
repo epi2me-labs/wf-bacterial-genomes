@@ -64,10 +64,12 @@ process deNovo {
     input:
         tuple val(sample_id), path("reads.fastq.gz")
     output:
-        tuple val(sample_id), path("${sample_id}.draft_assembly.fasta.gz")
+        tuple val(sample_id), path("${sample_id}.draft_assembly.fasta.gz"), path("${sample_id}_flye_stats.tsv")
+        
     """
     flye --nano-raw reads.fastq.gz --genome-size "${params.genome_size}" --out-dir output --threads "${task.cpus}"
     mv output/assembly.fasta "./${sample_id}.draft_assembly.fasta"
+    mv output/assembly_info.txt "./${sample_id}_flye_stats.tsv"
     bgzip "${sample_id}.draft_assembly.fasta"
     """
 }
@@ -133,7 +135,6 @@ process medakaNetwork {
 
 
 process medakaVariant {
-
     label "wfbacterialgenomes"
     cpus 1
     input:
@@ -149,6 +150,20 @@ process medakaVariant {
     medaka tools annotate vanilla.vcf ref.fasta.gz align.bam "${sample_id}.medaka.vcf"
     bgzip -i "${sample_id}.medaka.vcf"
     bcftools stats  "${sample_id}.medaka.vcf.gz" > "${sample_id}.variants.stats"
+    """
+}
+
+process assemblyStats {
+    label "wfbacterialgenomes"
+    input:
+         path(sample_assembly_gz)
+
+    output:
+        path("quast_output/transposed_report.tsv")
+
+    """
+    quast -o quast_output -t $task.cpus ${sample_assembly_gz}
+
     """
 }
 
@@ -230,6 +245,8 @@ process makeReport {
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
+        path "assembly_QC.txt"
+        path "flye_stats/*"
     output:
         path "wf-bacterial-genomes-*.html"
     script:
@@ -276,8 +293,11 @@ workflow calling_pipeline {
         sample_ids = reads.read.map { it -> it[0] }
         if (!reference){
             println("No reference provided creating de-novo assemblies.")
-            named_refs = deNovo(reads.read)
+            denovo_assem = deNovo(reads.read)
+            named_refs = denovo_assem.map { it -> [it[0], it[1]] }
             read_ref_groups = reads.read.join(named_refs)
+            
+
         } else {
             references = channel.fromPath(params.reference)
             read_ref_groups = reads.read.combine(references)
@@ -296,6 +316,18 @@ workflow calling_pipeline {
         hdfs = medakaNetwork(regions_bams)
         hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
+
+        // post polishing, do assembly specific things
+        if (!reference){
+             println("No reference provided, analysing assemblies.")
+             assem_stats = assemblyStats(consensus.collect({it -> it[1]}))
+             flye_info = denovo_assem.map { it -> it[2] }
+        } else {
+             assem_stats = Channel.empty()
+             flye_info = Channel.empty()
+        }
+
+             
 
         // call variants
         if (reference){
@@ -325,7 +357,9 @@ workflow calling_pipeline {
             reads.stats.collect(),
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
-            depth_stats.all.collect())
+            depth_stats.all.collect(),
+            assem_stats.ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
         telemetry = workflow_params
         all_out = variants.concat(
             vcf_variant,

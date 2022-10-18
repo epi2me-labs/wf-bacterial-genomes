@@ -3,8 +3,10 @@
 
 import argparse
 import base64
+import glob
 import io
 import os
+from pathlib import Path
 
 
 from aplanat import report
@@ -19,12 +21,28 @@ from dna_features_viewer import BiopythonTranslator
 import pandas as pd
 
 
-def read_files(summaries, **kwargs):
-    """Read a set of files and join to single dataframe."""
+def collate_stats(target_glob: str, input_sep="\t", filename_merge=False,
+                  **kwargs) -> pd.DataFrame:
+    r"""Collate stats files.
+
+    Args:
+        target_glob (str): Target glob to get files to read
+        input_sep (str, optional): input delimiter. Defaults to "\t".
+        filename_merge (bool, optional): When concatenating,
+        create a multi-index with filenames?. Defaults to False.
+
+    Returns:
+        pd.Dataframe: concatenated dataframe
+    """
     dfs = list()
-    for fname in sorted(summaries):
-        dfs.append(pd.read_csv(fname, **kwargs))
-    return pd.concat(dfs)
+    input_files = glob.glob(target_glob)
+    for fname in sorted(input_files):
+        dfs.append(pd.read_csv(fname, sep=input_sep, **kwargs))
+    if filename_merge:
+        return pd.concat(
+            dfs, keys=[Path(x).stem for x in input_files])
+    else:
+        return pd.concat(dfs, ignore_index=True)
 
 
 def fig_to_base64(fig):
@@ -37,6 +55,80 @@ def fig_to_base64(fig):
     return base64.b64encode(img.getvalue())
 
 
+def get_circular_stats(input_df: pd.DataFrame, circular_col_name="circ."):
+    """Parse Flye output for stats on circularisation.
+
+    Args:
+        input_df (pd.DataFrame): Flye stats dataframe
+        circular_col_name (str, optional): Col name needed.
+        Defaults to "circ.".
+    """
+    Yes_circ = input_df[input_df[circular_col_name] == "Y"][
+        circular_col_name].groupby(level=0).count()
+    No_circ = input_df[input_df[circular_col_name] == "N"][
+        circular_col_name].groupby(level=0).count()
+    merged = pd.concat(
+        [Yes_circ, No_circ], axis=1, keys=['Yes_circ', 'No_circ'])
+    merged = merged.fillna(0)
+    merged = merged.astype(int)
+    return merged['Yes_circ']
+
+
+def run_qc_stats(
+        read_stats_glob="stats/*.stats",
+        quast_stats_path="assembly_QC.txt",
+        flye_stats_glob="flye_stats/*stats.tsv"):
+    """Collate data from stats files."""
+    # Read stats
+    Read_stats = collate_stats(read_stats_glob, input_sep="\t")
+    Read_stats_filtered = Read_stats.loc[:, [
+        'sample_name', 'read_length', 'mean_quality']]
+    # Out table
+    Read_median = Read_stats_filtered.groupby(
+        'sample_name')['read_length'].median()
+    Read_quality = Read_stats_filtered.groupby(
+        'sample_name')['mean_quality'].mean()
+    Read_MB_sum = Read_stats_filtered.groupby(
+        'sample_name')['read_length'].sum()
+    Read_count = Read_stats_filtered.groupby(
+        'sample_name')['read_length'].count()
+    Read_stats_out = pd.concat(
+        [Read_count, Read_median, Read_quality, Read_MB_sum], axis=1)
+    Read_stats_out.columns = [
+        'Read_count', 'Median_read_length', 'Mean_read_quality',
+        'Total_read_bases']
+
+    # Quast stats
+
+    Quast_raw_data = pd.read_csv(quast_stats_path, sep='\t', index_col=0)
+    Quast_raw_data.index = Quast_raw_data.index.astype(str).str.replace(
+        '.medaka', '', regex=True)
+    Quast_keep_cols = [12, 13, 14, 15]
+    Quast_filtered_data = Quast_raw_data.iloc[:, Quast_keep_cols]
+    # Get flye stats
+
+    Flye_stats = collate_stats(flye_stats_glob, filename_merge=True)
+    # Remove extension from sample name
+    new_index_names = [
+        x.replace("_flye_stats", "") for x in
+        Flye_stats.index.levels[0].format()]
+
+    Flye_stats.index = Flye_stats.index.set_levels(new_index_names, level=0)
+
+    Flye_cov_mean = Flye_stats[Flye_stats['repeat'] == "N"].groupby(level=0)[
+        'cov.'].mean()
+    Flye_circ = get_circular_stats(Flye_stats)
+
+    Flye_out = pd.concat([Flye_cov_mean, Flye_circ], axis=1)
+    Flye_out.columns = ['Mean_contig_coverage', '#_circular_contigs']
+
+    # merge quast and read stats
+    Read_and_assembly = pd.concat(
+        [Read_stats_out, Quast_filtered_data, Flye_out], axis=1)
+    Read_and_assembly.to_csv('Read_and_assembly_stats.tsv', sep='\t')
+    return Read_and_assembly
+
+
 def gene_plot(gbk_file, **kwargs):
     """Create gene feature plot."""
     color_map = {
@@ -45,7 +137,7 @@ def gene_plot(gbk_file, **kwargs):
         "regulatory": "red",
         "rRNA": Colors.light_cornflower_blue,
         "misc_feature": "lightblue",
-        }
+    }
     translator = BiopythonTranslator(
         features_filters=(lambda f: f.type not in ["gene", "source"],),
         features_properties=lambda f: {
@@ -119,6 +211,7 @@ def main():
         help="A JSON file containing the workflow parameter key/values")
     parser.add_argument("--output", help="Report output filename")
     parser.add_argument("--stats", help="directory containing fastcat stats")
+
     parser.add_argument("--sample_ids", nargs="+")
 
     args = parser.parse_args()
@@ -134,6 +227,18 @@ def main():
         report_doc.add_section().markdown(
             "As no reference was provided the reads were assembled"
             "and corrected using Flye and Medaka")
+        Merged_stats_df = run_qc_stats()
+        section = report_doc.add_section()
+
+        section.markdown("## Run summary statistics")
+        section.markdown("### Read and assembly statistics")
+
+        section.markdown(
+            "This section displays the read and assembly QC"
+            " statistics for all the samples in the run.")
+
+        section.table(Merged_stats_df, index=True)
+
     sample_files = gather_sample_files(args.sample_ids)
 
     for name, files in sample_files.items():
@@ -151,7 +256,7 @@ def main():
             layout(
                 [[read_length, read_qual]],
                 sizing_mode="stretch_width")
-                )
+        )
 
         section = report_doc.add_section()
         section.markdown("""
@@ -165,11 +270,11 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
         plots_orient = depthcoverage.depth_coverage_orientation(
             files['fwd'], files['rev'])
         tab1 = Panel(
-                child=gridplot(plots_orient, ncols=1),
-                title="Coverage traces")
+            child=gridplot(plots_orient, ncols=1),
+            title="Coverage traces")
         tab2 = Panel(
-                child=gridplot(plots_cover, ncols=1),
-                title="Proportions covered")
+            child=gridplot(plots_cover, ncols=1),
+            title="Proportions covered")
         cover_panel = Tabs(tabs=[tab1, tab2])
         section.plot(cover_panel)
         if not args.denovo:
