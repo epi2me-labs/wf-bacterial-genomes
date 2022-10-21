@@ -383,9 +383,7 @@ workflow {
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
-        "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
-        "output":params.out_dir])
+        "sample_sheet":params.sample_sheet])
 
     reference = params.reference
     results = calling_pipeline(samples, reference)
