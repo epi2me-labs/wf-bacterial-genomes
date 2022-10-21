@@ -73,11 +73,6 @@
                     "default": 5000000,
                     "description": "Estimated genome size to be used in assembly"
                 },
-                "sanitize_fastq": {
-                    "type": "boolean",
-                    "description": "Use additional heuristics to identify barcodes from file paths\"",
-                    "help_text": "Enabling this option will group together files into samples by the presence of strings of the form `barcodeXXX` present in filenames, rather than simply files grouped into directories (as output by MinKNOW and the Guppy basecaller)"
-                },
                 "chunk_size": {
                     "type": "integer",
                     "default": 1000000,
@@ -139,7 +134,7 @@
                 },
                 "wfversion": {
                     "type": "string",
-                    "default": "v0.2.5",
+                    "default": "v0.2.6",
                     "hidden": true
                 },
                 "help": {
