@@ -159,14 +159,13 @@ process assemblyStats {
          path(sample_assembly_gz)
 
     output:
-        path("quast_output/transposed_report.tsv")
+        tuple path("quast_output/combined_reference/transposed_report.tsv"), path("quast_output/summary/TSV/Genome_fraction.tsv")
 
     """
-    quast -o quast_output -t $task.cpus ${sample_assembly_gz}
+    metaquast.py -o quast_output -t $task.cpus ${sample_assembly_gz}
 
     """
 }
-
 
 
 process medakaConsensus {
@@ -245,7 +244,7 @@ process makeReport {
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
-        path "assembly_QC.txt"
+        path "Quast_stats/*"
         path "flye_stats/*"
     output:
         path "wf-bacterial-genomes-*.html"
@@ -358,7 +357,7 @@ workflow calling_pipeline {
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
             depth_stats.all.collect(),
-            assem_stats.ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            assem_stats.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
         telemetry = workflow_params
         all_out = variants.concat(
