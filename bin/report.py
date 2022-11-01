@@ -76,7 +76,7 @@ def get_circular_stats(input_df: pd.DataFrame, circular_col_name="circ."):
 
 def run_qc_stats(
         read_stats_glob="stats/*.stats",
-        quast_stats_path="assembly_QC.txt",
+        quast_stats_path="Quast_stats/transposed_report.tsv",
         flye_stats_glob="flye_stats/*stats.tsv"):
     """Collate data from stats files."""
     # Read stats
@@ -127,6 +127,24 @@ def run_qc_stats(
         [Read_stats_out, Quast_filtered_data, Flye_out], axis=1)
     Read_and_assembly.to_csv('Read_and_assembly_stats.tsv', sep='\t')
     return Read_and_assembly
+
+
+def run_species_stats(species_stats_path="Quast_stats/Genome_fraction.tsv"):
+    r"""Sanalysis of metaQUAST data. This will be expanded in future.
+
+    Args:
+        species_stats_path (str, optional): MetaQUAST data on
+        species/completeness. Defaults to "Quast_stats/Genome_fraction.tsv".
+    """
+    species_data = pd.read_csv(species_stats_path, sep='\t', index_col=0)
+    species_data.columns = species_data.columns.str.replace(
+        ".medaka", "", regex=False)
+    species_data.index.name = None
+    # Take binomial name
+    species_data.index = [
+        "_".join(x.split("_")[0:2])
+        for x in species_data.index]
+    return species_data
 
 
 def gene_plot(gbk_file, **kwargs):
@@ -238,6 +256,15 @@ def main():
             " statistics for all the samples in the run.")
 
         section.table(Merged_stats_df, index=True)
+
+        section.markdown("### Species ID")
+
+        section.markdown(
+            "This section displays the Species ID as determined by 16S."
+            " The table shows the percentage of the reference genome present.")
+
+        species_stats = run_species_stats()
+        section.table(species_stats, index=True)
 
     sample_files = gather_sample_files(args.sample_ids)
 
