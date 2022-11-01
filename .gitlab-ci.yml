@@ -20,7 +20,7 @@ docker-run:
         - if: $MATRIX_NAME == "reference-based"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
-              NF_IGNORE_PROCESSES: "deNovo,assemblyStats"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
         - if: $MATRIX_NAME == "de-novo"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000"

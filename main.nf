@@ -251,13 +251,13 @@ process makeReport {
         path "wf-bacterial-genomes-*.html"
     script:
         report_name = "wf-bacterial-genomes-" + params.report_name + '.html'
-        prokka = params.run_prokka as Boolean ? "--prokka" : ""
         denovo = params.reference == null ? "--denovo" : ""
+        prokka1 = params.reference != null ? "" : params.run_prokka as Boolean ? "--prokka" : ""
         samples = sample_ids.join(" ")
     // NOTE: the script assumes the various subdirectories
     """
     report.py \
-    $prokka $denovo \
+    $prokka1 $denovo \
     --versions versions \
     --params params.json \
     --output $report_name \
@@ -339,7 +339,7 @@ workflow calling_pipeline {
             vcf_variant = Channel.empty()
         }
 
-        if (params.run_prokka) {
+        if (params.run_prokka && reference == null) {
             prokka = runProkka(consensus)
         } else {
             prokka = Channel.empty()
