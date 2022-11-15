@@ -3,11 +3,9 @@
 
 import argparse
 import base64
-import glob
 import io
 import os
-from pathlib import Path
-
+import re
 
 from aplanat import report
 from aplanat.components import bcfstats
@@ -21,28 +19,19 @@ from dna_features_viewer import BiopythonTranslator
 import pandas as pd
 
 
-def collate_stats(target_glob: str, input_sep="\t", filename_merge=False,
-                  **kwargs) -> pd.DataFrame:
-    r"""Collate stats files.
-
-    Args:
-        target_glob (str): Target glob to get files to read
-        input_sep (str, optional): input delimiter. Defaults to "\t".
-        filename_merge (bool, optional): When concatenating,
-        create a multi-index with filenames?. Defaults to False.
-
-    Returns:
-        pd.Dataframe: concatenated dataframe
-    """
+def collate_stats(
+        dir_path,
+        sample_names,
+        suffix,
+        input_sep="\t",
+        ** kwargs):
+    """Collate stats files."""
     dfs = list()
-    input_files = glob.glob(target_glob)
-    for fname in sorted(input_files):
-        dfs.append(pd.read_csv(fname, sep=input_sep, **kwargs))
-    if filename_merge:
-        return pd.concat(
-            dfs, keys=[Path(x).stem for x in input_files])
-    else:
-        return pd.concat(dfs, ignore_index=True)
+    for sample_name in sample_names:
+        file_path = os.path.join(dir_path, sample_name + suffix)
+        df = pd.read_csv(file_path, sep=input_sep, **kwargs)
+        dfs.append(df)
+    return pd.concat(dfs, axis=0, keys=sample_names)
 
 
 def fig_to_base64(fig):
@@ -55,96 +44,118 @@ def fig_to_base64(fig):
     return base64.b64encode(img.getvalue())
 
 
-def get_circular_stats(input_df: pd.DataFrame, circular_col_name="circ."):
-    """Parse Flye output for stats on circularisation.
+def get_circular_stats(input_df, circular_col_name="circ."):
+    """Parse flye output for stats on circularisation."""
+    circular = input_df.groupby(level=0)[circular_col_name].value_counts()
+    circular = circular.unstack()
+    circular = circular.fillna(0)
 
-    Args:
-        input_df (pd.DataFrame): Flye stats dataframe
-        circular_col_name (str, optional): Col name needed.
-        Defaults to "circ.".
-    """
-    Yes_circ = input_df[input_df[circular_col_name] == "Y"][
-        circular_col_name].groupby(level=0).count()
-    No_circ = input_df[input_df[circular_col_name] == "N"][
-        circular_col_name].groupby(level=0).count()
-    merged = pd.concat(
-        [Yes_circ, No_circ], axis=1, keys=['Yes_circ', 'No_circ'])
-    merged = merged.fillna(0)
-    merged = merged.astype(int)
-    return merged['Yes_circ']
+    out_df = pd.DataFrame({
+        'N': [0]*len(circular.index),
+        'Y': [0]*len(circular.index)},
+        index=circular.index)
+    for sample in circular.index:
+        if 'N' in circular.columns:
+            out_df.loc[sample, 'N'] = circular.loc[sample, 'N']
+        if 'Y' in circular.columns:
+            out_df.loc[sample, 'Y'] = circular.loc[sample, 'Y']
+    return out_df
+
+
+def bp_to_mb(input_num):
+    """Convert bases to megabases."""
+    return round(input_num / 1000000, 2)
 
 
 def run_qc_stats(
-        read_stats_glob="stats/*.stats",
-        quast_stats_path="Quast_stats/transposed_report.tsv",
-        flye_stats_glob="flye_stats/*stats.tsv"):
-    """Collate data from stats files."""
-    # Read stats
-    Read_stats = collate_stats(read_stats_glob, input_sep="\t")
-    Read_stats_filtered = Read_stats.loc[:, [
+        sample_names,
+        read_stats_dir,
+        read_stats_suffix,
+        quast_path,
+        flye_dir,
+        flye_suffix,
+):
+    """Run QC stats."""
+    # read stats
+    read_stats = collate_stats(
+        read_stats_dir, sample_names, read_stats_suffix)
+    read_stats_filtered = read_stats.loc[:, [
         'sample_name', 'read_length', 'mean_quality']]
     # Out table
-    Read_median = Read_stats_filtered.groupby(
+    read_median = read_stats_filtered.groupby(
         'sample_name')['read_length'].median()
-    Read_quality = Read_stats_filtered.groupby(
+    read_quality = read_stats_filtered.groupby(
         'sample_name')['mean_quality'].mean()
-    Read_MB_sum = Read_stats_filtered.groupby(
+    read_mb_sum = read_stats_filtered.groupby(
         'sample_name')['read_length'].sum()
-    Read_count = Read_stats_filtered.groupby(
+    read_count = read_stats_filtered.groupby(
         'sample_name')['read_length'].count()
-    Read_stats_out = pd.concat(
-        [Read_count, Read_median, Read_quality, Read_MB_sum], axis=1)
-    Read_stats_out.columns = [
-        'Read_count', 'Median_read_length', 'Mean_read_quality',
-        'Total_read_bases']
+    read_stats_out = pd.concat(
+        [read_count,
+         read_median,
+         read_quality,
+         bp_to_mb(read_mb_sum)], axis=1)
+    read_stats_out.columns = [
+        'Read count', 'Median read length (bp)', 'Mean read quality',
+        'Read data (Mb)']
 
-    # Quast stats
+    # quast stats
 
-    Quast_raw_data = pd.read_csv(quast_stats_path, sep='\t', index_col=0)
-    Quast_raw_data.index = Quast_raw_data.index.astype(str).str.replace(
+    quast_raw_data = pd.read_csv(
+        os.path.join(quast_path, "transposed_report.tsv"),
+        sep='\t',
+        index_col=0)
+    quast_raw_data.index = quast_raw_data.index.astype(str).str.replace(
         '.medaka', '', regex=True)
-    Quast_keep_cols = [12, 13, 14, 15]
-    Quast_filtered_data = Quast_raw_data.iloc[:, Quast_keep_cols]
+    quast_keep_cols = [12, 13, 14, 15]
+    quast_filtered_data = quast_raw_data.iloc[:, quast_keep_cols].copy()
     # Get flye stats
+    quast_filtered_data.iloc[:, [1, 2, 3]] = bp_to_mb(
+        quast_filtered_data.iloc[:, [1, 2, 3]])
+    quast_filtered_data.columns = [
+        '# contigs',
+        'Largest contig (Mb)',
+        'Total length (Mb)',
+        'Reference length (Mb)']
 
-    Flye_stats = collate_stats(flye_stats_glob, filename_merge=True)
-    # Remove extension from sample name
-    new_index_names = [
-        x.replace("_flye_stats", "") for x in
-        Flye_stats.index.levels[0].format()]
+    # flye stats
+    flye_stats = collate_stats(
+        flye_dir, sample_names, flye_suffix)
+    flye_stats['circ.'] = flye_stats['circ.'].str.strip()
+    flye_cov_mean = flye_stats[flye_stats['repeat'] == "N"].groupby(
+        level=0)['cov.'].mean()
+    # flye_cov_mean = flye_cov_mean.reset_index()
+    flye_circular = get_circular_stats(flye_stats)
+    flye_out = pd.concat([flye_cov_mean, flye_circular['Y']], axis=1)
+    flye_out.columns = ['Mean contig coverage', '# circular contigs']
+    # Merge
+    merged = pd.merge(
+        read_stats_out, quast_filtered_data, left_index=True,
+        right_index=True).merge(
+            flye_out, left_index=True, right_index=True)
+    merged.index.name = None
 
-    Flye_stats.index = Flye_stats.index.set_levels(new_index_names, level=0)
-
-    Flye_cov_mean = Flye_stats[Flye_stats['repeat'] == "N"].groupby(level=0)[
-        'cov.'].mean()
-    Flye_circ = get_circular_stats(Flye_stats)
-
-    Flye_out = pd.concat([Flye_cov_mean, Flye_circ], axis=1)
-    Flye_out.columns = ['Mean_contig_coverage', '#_circular_contigs']
-
-    # merge quast and read stats
-    Read_and_assembly = pd.concat(
-        [Read_stats_out, Quast_filtered_data, Flye_out], axis=1)
-    Read_and_assembly.to_csv('Read_and_assembly_stats.tsv', sep='\t')
-    return Read_and_assembly
+    return merged
 
 
-def run_species_stats(species_stats_path="Quast_stats/Genome_fraction.tsv"):
-    r"""Sanalysis of metaQUAST data. This will be expanded in future.
-
-    Args:
-        species_stats_path (str, optional): MetaQUAST data on
-        species/completeness. Defaults to "Quast_stats/Genome_fraction.tsv".
-    """
-    species_data = pd.read_csv(species_stats_path, sep='\t', index_col=0)
-    species_data.columns = species_data.columns.str.replace(
-        ".medaka", "", regex=False)
-    species_data.index.name = None
-    # Take binomial name
-    species_data.index = [
-        "_".join(x.split("_")[0:2])
-        for x in species_data.index]
-    return species_data
+def run_species_stats(species_stats_path, sample_names):
+    """Analysis of metaquast data."""
+    results = []
+    for indexs, sample_name in enumerate(sample_names):
+        species_data_path = os.path.join(
+            species_stats_path, "blast.res_"+sample_name+"-medaka")
+        species_data = pd.read_csv(species_data_path, sep='\t', comment="#")
+        top_hit = species_data.iloc[1, :]
+        species_split = re.split("\\.", top_hit[1])[2].split(";")
+        species = species_split[len(species_split)-1]
+        species = re.sub("_", " ", species)
+        results.append(
+            {'Sample': sample_name,
+             'Species': species,
+             'Perc_identity': top_hit[2]})
+    results_df = pd.DataFrame(results, index=sample_names).iloc[:, 1:3]
+    results_df.columns = ['Species ID', 'Identity (%)']
+    return results_df
 
 
 def gene_plot(gbk_file, **kwargs):
@@ -170,7 +181,7 @@ def gene_plot(gbk_file, **kwargs):
     return plot
 
 
-def gather_sample_files(sample_names):
+def gather_sample_files(sample_names, denovo_mode, prokka_mode):
     """Check files exist for the report."""
     sample_names.sort()
     sample_files = {}
@@ -201,10 +212,15 @@ def gather_sample_files(sample_names):
         for name, file in expected_files.items():
             if os.path.exists(file):
                 pass
+            elif denovo_mode & (name == 'variants_file'):
+                pass
+            elif prokka_mode & (name == 'prokka'):
+                pass
             else:
                 final_files[name] = 'None'
-                print('Missing {0} required for report for: {1}'.format(
-                    name, sample_name))
+                raise FileNotFoundError(
+                    'Missing {0} required for report for: {1}'.format(
+                        name, sample_name))
         sample_files[sample_name] = final_files
     return sample_files
 
@@ -244,29 +260,41 @@ def main():
     else:
         report_doc.add_section().markdown(
             "As no reference was provided the reads were assembled"
-            "and corrected using Flye and Medaka")
-        Merged_stats_df = run_qc_stats()
+            " and corrected using flye and Medaka")
+        merged_stats_df = run_qc_stats(
+            sample_names=args.sample_ids,
+            read_stats_dir="stats",
+            read_stats_suffix=".stats",
+            quast_path="quast_stats",
+            flye_dir="flye_stats",
+            flye_suffix="_flye_stats.tsv")
         section = report_doc.add_section()
 
         section.markdown("## Run summary statistics")
-        section.markdown("### Read and assembly statistics")
+        section.markdown("### read and assembly statistics")
 
         section.markdown(
             "This section displays the read and assembly QC"
             " statistics for all the samples in the run.")
 
-        section.table(Merged_stats_df, index=True)
+        section.table(merged_stats_df, index=True)
 
         section.markdown("### Species ID")
 
         section.markdown(
             "This section displays the Species ID as determined by 16S."
-            " The table shows the percentage of the reference genome present.")
+            " The table shows the percentage match of the 16S sequence"
+            " to the best match of  the SILVA 16S database.")
 
-        species_stats = run_species_stats()
+        species_stats = run_species_stats(
+            species_stats_path="quast_stats/quast_downloaded_references",
+            sample_names=args.sample_ids)
         section.table(species_stats, index=True)
 
-    sample_files = gather_sample_files(args.sample_ids)
+    sample_files = gather_sample_files(
+        args.sample_ids,
+        args.denovo,
+        args.prokka)
 
     for name, files in sample_files.items():
         section = report_doc.add_section()
@@ -275,7 +303,7 @@ def main():
         read_qual = fastcat.read_quality_plot(quality_df)
         read_length = fastcat.read_length_plot(quality_df)
         section = report_doc.add_section()
-        section.markdown("## Read Quality Control")
+        section.markdown("## read Quality Control")
         section.markdown(
             "This sections displays basic QC",
             " metrics indicating read data quality.")

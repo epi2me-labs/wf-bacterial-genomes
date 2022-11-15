@@ -6,14 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## unreleased
 ### Changes
-- Replace quast with metaquast
+- Replace QUAST with MetaQUAST
 - Add species ID to run summary table
 ### Fixes
 - Prokka only runs in denovo assembly mode
-
+- Tidy up report code
 ## [v0.2.6]
 ### Changes
-- Added quast for assembly stats
+- Added QUAST for assembly stats
 - Remove sanitize option
 ### Fixes
 - Update syntax to fix reference error
