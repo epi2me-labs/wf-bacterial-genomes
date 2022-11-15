@@ -27,15 +27,6 @@ docker-run:
               NF_IGNORE_PROCESSES: "medakaVariant"
 
 
-aws-run:
-    artifacts:
-        when: always
-        paths:
-            - ${CI_PROJECT_NAME}
-            - .nextflow.log
-        exclude: [] # give me everything pal
-
-
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
     extends: .aux-container

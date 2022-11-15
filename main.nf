@@ -155,15 +155,15 @@ process medakaVariant {
 
 process assemblyStats {
     label "wfbacterialgenomes"
+    cpus 1
     input:
-         path(sample_assembly_gz)
+         path(sample_assembly)
 
     output:
-        tuple path("quast_output/combined_reference/transposed_report.tsv"), path("quast_output/summary/TSV/Genome_fraction.tsv")
+        tuple path("quast_output/combined_reference/transposed_report.tsv"), path("quast_output/quast_downloaded_references/")
 
     """
-    metaquast.py -o quast_output -t $task.cpus ${sample_assembly_gz}
-
+    metaquast.py -o quast_output -t $task.cpus ${sample_assembly}
     """
 }
 
@@ -244,19 +244,19 @@ process makeReport {
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
-        path "Quast_stats/*"
+        path "quast_stats/*"
         path "flye_stats/*"
     output:
         path "wf-bacterial-genomes-*.html"
     script:
         report_name = "wf-bacterial-genomes-" + params.report_name + '.html'
         denovo = params.reference == null ? "--denovo" : ""
-        prokka1 = params.reference != null ? "" : params.run_prokka as Boolean ? "--prokka" : ""
+        prokka = params.run_prokka as Boolean ? "--prokka" : ""
         samples = sample_ids.join(" ")
     // NOTE: the script assumes the various subdirectories
     """
     report.py \
-    $prokka1 $denovo \
+    $prokka $denovo \
     --versions versions \
     --params params.json \
     --output $report_name \
@@ -295,15 +295,12 @@ workflow calling_pipeline {
             denovo_assem = deNovo(reads.read)
             named_refs = denovo_assem.map { it -> [it[0], it[1]] }
             read_ref_groups = reads.read.join(named_refs)
-            
-
         } else {
             references = channel.fromPath(params.reference)
             read_ref_groups = reads.read.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
         }
         alignments = alignReads(read_ref_groups)
-
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
         regions = splitRegions(alignments).splitText()
@@ -326,8 +323,6 @@ workflow calling_pipeline {
              flye_info = Channel.empty()
         }
 
-             
-
         // call variants
         if (reference){
             variant = medakaVariant(hdfs_grouped)
@@ -338,7 +333,7 @@ workflow calling_pipeline {
             vcf_variant = Channel.empty()
         }
 
-        if (params.run_prokka && reference == null) {
+        if (params.run_prokka) {
             prokka = runProkka(consensus)
         } else {
             prokka = Channel.empty()
