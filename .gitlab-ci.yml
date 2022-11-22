@@ -7,6 +7,7 @@ variables:
     # chunk_size here forces multiple chunks even for test data which better exercises some channels
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
     NF_IGNORE_PROCESSES: "deNovo"
+    CI_FLAVOUR: "new"
 
 
 docker-run:
