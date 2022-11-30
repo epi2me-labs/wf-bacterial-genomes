@@ -3,177 +3,190 @@
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-bacterial-genomes",
     "description": "Assemble or align whole bacterial genomes and annotate.",
+    "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-bacterial-genomes/wf-bacterial-genomes-demo.tar.gz",
     "url": "https://github.com/epi2me-labs/wf-bacterial-genomes",
     "type": "object",
     "definitions": {
-        "input_output_options": {
-            "title": "Input/output options",
+        "input": {
+            "title": "Input Options",
             "type": "object",
-            "fa_icon": "fas fa-terminal",
-            "description": "Define where the pipeline should find input data and save output data.",
+            "fa_icon": "fas fa-arrow-right",
+            "description": "Parameters for finding and handling input data for analysis.",
             "properties": {
                 "fastq": {
                     "type": "string",
-                    "format": "file-path",
-                    "demo_data": "${projectDir}/test_data/fastq",
-                    "description": "Path to FASTQ directory. Can be either a single file or contain multiple directories."
+                    "format": "path",
+                    "description": "FASTQ files to use in the analysis.",
+                    "help_text": "This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
-                "out_dir": {
-                    "type": "string",
-                    "default": "output",
-                    "format": "directory-path",
-                    "description": "Path for output"
-                },
-                "sample_sheet": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "CSV file with columns named `barcode`, `sample_name` and `type`. Permissible if passing a directory containing barcodeXX sub-directories.",
-                    "help_text": "If no sample sheet is provided, the names of the directories will be used as sample names."
-                },
-                "sample": {
-                    "type": "string",
-                    "description": "A sample name for non-multiplexed data. Permissible if passing a file or directory of .fastq(.gz)."
-                }
-            },
-            "required": [
-                "fastq"
-            ]
-        },
-        "reference_genome_options": {
-            "title": "Reference genome options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Reference genome related files and options required for the workflow.",
-            "properties": {
-                "medaka_model": {
-                    "type": "string",
-                    "default": "r941_prom_variant_g360",
-                    "description": "Medaka model name",
-                    "help_text": "The correct medaka model to use is determined by the Guppy basecaller version, see [Medaka Models](https://github.com/nanoporetech/medaka#models) for more information."
+                "reference_based_assembly": {
+                    "type": "boolean",
+                    "help_text": "By default de novo assembly will be performed with Flye. Enable this option if you have an appropriate reference for reference-based assembly. If enabled you must provide a reference.",
+                    "description": "Enable reference guided assembly instead of de novo assembly."
                 },
                 "reference": {
                     "type": "string",
                     "format": "file-path",
                     "demo_data": "${projectDir}/test_data/ref",
-                    "description": "Reference sequence FASTA file. If provided this will be used to perform variant calling with Medaka. If not given the denovo assembly will be performed with Flye and Medaka."
+                    "description": "Reference sequence FASTA file.",
+                    "help_text": "If provided this will be used to perform variant calling with Medaka. If not, the de novo assembly will be performed with Flye and Medaka."
+                },
+                "evaluate_assemblies": {
+                    "type": "boolean",
+                    "description": "Evaluate the assemblies and compare metagenome assemblies based on alignments to close references",
+                    "help_text": "Will run MetaQUAST on the output assemblies and output quality stats."
+                },
+                "medaka_model": {
+                    "type": "string",
+                    "default": "r941_prom_variant_g360",
+                    "description": "Medaka model name",
+                    "help_text": "The correct Medaka model to use is determined by the Guppy basecaller version, see [Medaka Models](https://github.com/nanoporetech/medaka#models) for more information."
+                },
+                "analyse_unclassified": {
+                    "type": "boolean",
+                    "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
+                    "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 }
             },
             "required": [
+                "fastq",
                 "medaka_model"
             ]
         },
-        "advanced_options": {
-            "title": "Advanced options",
+        "samples": {
+            "title": "Sample Options",
             "type": "object",
-            "fa_icon": "fab fa-acquisitions-incorporated",
-            "help_text": "",
+            "fa_icon": "fas fa-vials",
+            "description": "Parameters that relate to samples such as sample sheets and sample names.",
             "properties": {
-                "genome_size": {
-                    "type": "integer",
-                    "default": 5000000,
-                    "description": "Estimated genome size to be used in assembly"
+                "sample_sheet": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files.",
+                    "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
                 },
+                "sample": {
+                    "type": "string",
+                    "description": "A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files."
+                }
+            }
+        },
+        "output": {
+            "title": "Output Options",
+            "type": "object",
+            "fa_icon": "fas fa-arrow-left",
+            "description": "Parameters for saving and naming workflow outputs.",
+            "properties": {
+                "out_dir": {
+                    "type": "string",
+                    "default": "output",
+                    "format": "directory-path",
+                    "description": "Directory for output of all workflow results."
+                }
+            }
+        },
+        "advanced_options": {
+            "title": "Advanced Options",
+            "type": "object",
+            "fa_icon": "far fa-question-circle",
+            "description": "Advanced options for configuring processes inside the workflow.",
+            "help_text": "These advanced options do not need to be changed for typical use, but allow fine tuning of workflows for users who want more control over the workflow.",
+            "properties": {
                 "chunk_size": {
                     "type": "integer",
                     "default": 1000000,
                     "description": "Splits the reference sequences (or Flye assembly) into overlapping sub-regions of this size when processing with Medaka.",
                     "hidden": true
                 },
-                "prokka_opts": {
-                    "type": "string",
-                    "description": "Command-line arguments for prokka"
-                },
-                "prokka_version": {
-                    "type": "string",
-                    "default": "1.14.5",
-                    "description": "Prokka version to use"
-                },
                 "run_prokka": {
                     "type": "boolean",
                     "description": "Run prokka on consensus sequence",
-                    "default": true
+                    "default": true,
+                    "help_text": "Will provide an output file with a list of annotations for your sequence. Optional because it can take some time."
                 },
-                "disable_ping": {
-                    "type": "boolean",
-                    "description": "Enable to prevent sending a workflow ping."
-                }
-            }
-        },
-        "meta_data": {
-            "title": "Meta data",
-            "type": "object",
-            "description": "",
-            "default": "",
-            "properties": {
-                "report_name": {
+                "prokka_opts": {
                     "type": "string",
-                    "default": "report",
-                    "description": "Optional report suffix"
-                }
-            }
-        },
-        "generic_options": {
-            "title": "Generic options",
-            "type": "object",
-            "fa_icon": "fas fa-file-import",
-            "description": "",
-            "help_text": "",
-            "properties": {
-                "aws_queue": {
-                    "type": "string",
-                    "hidden": true
+                    "description": "Command-line arguments for prokka",
+                    "help_text": "[Command line arguments](https://github.com/tseemann/prokka#command-line-options) which can be used to alter prokka output annotation files."
                 },
                 "threads": {
                     "type": "integer",
-                    "default": 1,
-                    "description": "Number of threads per process."
-                },
-                "aws_image_prefix": {
-                    "type": "string",
-                    "hidden": true
-                },
-                "wfversion": {
-                    "type": "string",
-                    "default": "v0.2.6",
-                    "hidden": true
+                    "default": 2,
+                    "description": "Number of CPU threads.",
+                    "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
+                }
+            }
+        },
+        "misc": {
+            "title": "Miscellaneous Options",
+            "type": "object",
+            "description": "Everything else.",
+            "default": "",
+            "properties": {
+                "disable_ping": {
+                    "type": "boolean",
+                    "description": "Enable to prevent sending a workflow ping."
                 },
                 "help": {
                     "type": "boolean",
                     "description": "Display help text.",
-                    "fa_icon": "fas fa-question-circle"
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
                 },
                 "version": {
                     "type": "boolean",
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
-                },
-                "analyse_unclassified": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
-                    "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 }
             }
         }
     },
     "allOf": [
         {
-            "$ref": "#/definitions/input_output_options"
+            "$ref": "#/definitions/input"
         },
         {
-            "$ref": "#/definitions/reference_genome_options"
+            "$ref": "#/definitions/samples"
+        },
+        {
+            "$ref": "#/definitions/output"
         },
         {
             "$ref": "#/definitions/advanced_options"
         },
         {
-            "$ref": "#/definitions/meta_data"
-        },
-        {
-            "$ref": "#/definitions/generic_options"
+            "$ref": "#/definitions/misc"
         }
     ],
+    "properties": {
+        "aws_image_prefix": {
+            "type": "string",
+            "hidden": true
+        },
+        "aws_queue": {
+            "type": "string",
+            "hidden": true
+        },
+        "wfversion": {
+            "type": "string",
+            "default": "v0.2.6",
+            "hidden": true
+        },
+        "monochrome_logs": {
+            "type": "boolean",
+            "hidden": true
+        },
+        "validate_params": {
+            "type": "boolean",
+            "default": true,
+            "hidden": true
+        },
+        "show_hidden_params": {
+            "type": "boolean",
+            "hidden": true
+        }
+    },
     "docs": {
         "intro": "# Introduction\n\nIf no reference is included assembly will be \ncompleted using [flye](https://github.com/fenderglass/Flye) and polished with \n[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided\nalignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\nand variant called using medaka. The workflow can optionally run\n[prokka](https://github.com/tseemann/prokka) to annotate the resulting\nconsensus sequence.\n",
         "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)"

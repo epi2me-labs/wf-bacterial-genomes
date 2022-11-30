@@ -5,7 +5,7 @@ include:
 
 variables:
     # chunk_size here forces multiple chunks even for test data which better exercises some channels
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
     NF_IGNORE_PROCESSES: "deNovo"
     CI_FLAVOUR: "new"
 
@@ -14,17 +14,21 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "reference-based", "de-novo"]
+                "reference-based", "de-novo", "evaluate-assemblies"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
         - if: $MATRIX_NAME == "reference-based"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --evaluate_assemblies --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
         - if: $MATRIX_NAME == "de-novo"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000"
+              NF_IGNORE_PROCESSES: "medakaVariant"
+        - if: $MATRIX_NAME == "evaluate-assemblies"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000 --evaluate_assemblies"
               NF_IGNORE_PROCESSES: "medakaVariant"
 
 
