@@ -8,14 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changes
 - Replace QUAST with MetaQUAST
 - Add species ID to run summary table
+- For reference based assembly `--reference_based_assembly` parameter should now be provided with a `--reference`. The default is to use denovo assembly.
 - Tidy up presentation in report
 - `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
+- Docs update
 ### Added
 - `nextflow run epi2me-labs/wf-human-variation --version` will now print the workflow version number and exit
 ### Fixes
 - Prokka only runs in denovo assembly mode
 - Tidy up report code
-  
+
 ## [v0.2.6]
 ### Changes
 - Added QUAST for assembly stats

@@ -65,9 +65,9 @@ process deNovo {
         tuple val(sample_id), path("reads.fastq.gz")
     output:
         tuple val(sample_id), path("${sample_id}.draft_assembly.fasta.gz"), path("${sample_id}_flye_stats.tsv")
-        
+    script:
     """
-    flye --nano-raw reads.fastq.gz --genome-size "${params.genome_size}" --out-dir output --threads "${task.cpus}"
+    flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}"
     mv output/assembly.fasta "./${sample_id}.draft_assembly.fasta"
     mv output/assembly_info.txt "./${sample_id}_flye_stats.tsv"
     bgzip "${sample_id}.draft_assembly.fasta"
@@ -144,7 +144,7 @@ process medakaVariant {
         path "${sample_id}.variants.stats", emit: variant_stats
     // note: extension on ref.fasta.gz might not be accurate but shouldn't (?) cause issues.
     //       Also the first step may create an index if not already existing so the alternative
-    //       reference.* will break 
+    //       reference.* will break
     """
     medaka variant ref.fasta.gz consensus_probs*.hdf vanilla.vcf
     medaka tools annotate vanilla.vcf ref.fasta.gz align.bam "${sample_id}.medaka.vcf"
@@ -266,7 +266,7 @@ process makeReport {
     output:
         path "wf-bacterial-genomes-*.html"
     script:
-        report_name = "wf-bacterial-genomes-" + params.report_name + '.html'
+        report_name = "wf-bacterial-genomes-report.html"
         denovo = params.reference == null ? "--denovo" : ""
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         samples = sample_ids.join(" ")
@@ -307,12 +307,16 @@ workflow calling_pipeline {
     main:
         reads = concatFastq(reads)
         sample_ids = reads.read.map { it -> it[0] }
-        if (!reference){
-            println("No reference provided creating de-novo assemblies.")
+        if (params.reference_based_assembly && !params.reference){
+            throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
+        }
+        if (!params.reference_based_assembly){
+            log.info("Running Denovo assembly.")
             denovo_assem = deNovo(reads.read)
             named_refs = denovo_assem.map { it -> [it[0], it[1]] }
             read_ref_groups = reads.read.join(named_refs)
         } else {
+            log.info("Reference based assembly selected.")
             references = channel.fromPath(params.reference)
             read_ref_groups = reads.read.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
@@ -324,24 +328,28 @@ workflow calling_pipeline {
         named_regions = regions.map {
             it -> return tuple(it.split(/&split!/)[0], it.split(/&split!/)[1])
         }
-        
+
         regions_bams = named_regions.combine(alignments, by: [0])
         hdfs = medakaNetwork(regions_bams)
         hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
 
         // post polishing, do assembly specific things
-        if (!reference){
-             println("No reference provided, analysing assemblies.")
+        if (params.evaluate_assemblies){
+             log.info("Evaluating assemblies, set evaluate_assemblies param to False to skip.")
              assem_stats = assemblyStats(consensus.collect({it -> it[1]}))
-             flye_info = denovo_assem.map { it -> it[2] }
         } else {
+             log.info("Not evaluating assemblies. Enable with --evaluate_assemblies true")
              assem_stats = Channel.empty()
-             flye_info = Channel.empty()
+        }
+        if (!params.reference_based_assembly){
+            flye_info = denovo_assem.map { it -> it[2] }
+        }else{
+            flye_info = Channel.empty()
         }
 
         // call variants
-        if (reference){
+        if (params.reference_based_assembly){
             variant = medakaVariant(hdfs_grouped)
             variants = variant.variant_stats
             vcf_variant = variant.variants
@@ -377,7 +385,7 @@ workflow calling_pipeline {
             consensus.map {it -> it[1]},
             report,
             prokka)
-        
+
     emit:
         all_out
         telemetry
@@ -390,7 +398,7 @@ workflow {
     if (params.disable_ping == false) {
         Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
     }
-    
+
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
@@ -405,7 +413,7 @@ if (params.disable_ping == false) {
     workflow.onComplete {
         Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
     }
-    
+
     workflow.onError {
         Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
     }

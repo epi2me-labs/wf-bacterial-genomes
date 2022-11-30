@@ -307,7 +307,7 @@ def main():
         read_qual = fastcat.read_quality_plot(quality_df)
         read_length = fastcat.read_length_plot(quality_df)
         section = report_doc.add_section()
-        section.markdown("####Read Quality Control")
+        section.markdown("#### Read Quality Control")
         section.markdown(
             "This sections displays basic QC",
             " metrics indicating read data quality.")
@@ -317,7 +317,7 @@ def main():
                 sizing_mode="stretch_width")
         )
         section = report_doc.add_section()
-        section.markdown("####Genome coverage")
+        section.markdown("#### Genome coverage")
         section.markdown("""
 Plots below indicate depth of coverage,
 For adequate variant calling depth should be at least 50X in any region.
@@ -340,7 +340,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
             record_dict = SeqIO.to_dict(
                 SeqIO.parse(files['prokka'], "genbank"))
             section = report_doc.add_section()
-            section.markdown('####Annotations')
+            section.markdown('#### Annotations')
             section.markdown("""
 Each contig is annotated with [Prokka](https://github.com/tseemann/prokka)
 and visualised with
@@ -362,7 +362,7 @@ and visualised with
     # Footer section
     section = report_doc.add_section()
     section.markdown('''
-###About
+### About
 
 **Oxford Nanopore Technologies products are not intended for use for health
 assessment or to diagnose, treat, mitigate, cure or prevent any disease or
