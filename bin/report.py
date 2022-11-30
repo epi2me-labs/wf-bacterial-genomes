@@ -173,8 +173,8 @@ def gene_plot(gbk_file, **kwargs):
             "color": color_map.get(f.type, "white")})
     record = translator.translate_record(gbk_file)
     ax, _ = record.plot(
-        figure_width=300,
-        strand_in_label_threshold=30, **kwargs)
+        figure_width=100,
+        strand_in_label_threshold=20, **kwargs)
     encoded = fig_to_base64(ax.figure)
     plot = '<pre><img src="data:image/png;base64, {}"></pre>'.format(
         encoded.decode('utf-8'))
@@ -250,12 +250,12 @@ def main():
 
     args = parser.parse_args()
     report_doc = report.HTMLReport(
-        "Bacterial genomes Summary Report",
-        ("Results generated through the wf-bacterial-genomes nextflow "
+        "Bacterial Genomes Summary Report",
+        ("Results generated through the wf-bacterial-genomes Nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
     if not args.denovo:
         report_doc.add_section().markdown(
-            "Analysis was completed using an alignment with the provided"
+            "Analysis was completed using an alignment with the provided "
             "reference and medaka was used for variant calling")
     else:
         report_doc.add_section().markdown(
@@ -271,15 +271,16 @@ def main():
         section = report_doc.add_section()
 
         section.markdown("## Run summary statistics")
-        section.markdown("### read and assembly statistics")
+        section.markdown("* * *")
+        section.markdown("#### Read and assembly statistics")
 
         section.markdown(
             "This section displays the read and assembly QC"
             " statistics for all the samples in the run.")
 
         section.table(merged_stats_df, index=True)
-
-        section.markdown("### Species ID")
+        section = report_doc.add_section()
+        section.markdown("#### Species ID")
 
         section.markdown(
             "This section displays the Species ID as determined by 16S."
@@ -290,6 +291,7 @@ def main():
             species_stats_path="quast_stats/quast_downloaded_references",
             sample_names=args.sample_ids)
         section.table(species_stats, index=True)
+        section.markdown('<br/>')
 
     sample_files = gather_sample_files(
         args.sample_ids,
@@ -298,12 +300,14 @@ def main():
 
     for name, files in sample_files.items():
         section = report_doc.add_section()
-        section.markdown("###" + str(name))
+        section.markdown('<br/>')
+        section.markdown('## Sample: {}'.format(str(name)))
+        section.markdown("* * *")
         quality_df = pd.read_csv(files['stats'], sep='\t')
         read_qual = fastcat.read_quality_plot(quality_df)
         read_length = fastcat.read_length_plot(quality_df)
         section = report_doc.add_section()
-        section.markdown("## read Quality Control")
+        section.markdown("####Read Quality Control")
         section.markdown(
             "This sections displays basic QC",
             " metrics indicating read data quality.")
@@ -312,11 +316,9 @@ def main():
                 [[read_length, read_qual]],
                 sizing_mode="stretch_width")
         )
-
         section = report_doc.add_section()
+        section.markdown("####Genome coverage")
         section.markdown("""
-
-        ## Genome coverage
 Plots below indicate depth of coverage,
 For adequate variant calling depth should be at least 50X in any region.
 Forward reads are shown in light-blue, reverse reads are dark grey.
@@ -337,14 +339,21 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
         if args.prokka:
             record_dict = SeqIO.to_dict(
                 SeqIO.parse(files['prokka'], "genbank"))
+            section = report_doc.add_section()
+            section.markdown('####Annotations')
+            section.markdown("""
+Each contig is annotated with [Prokka](https://github.com/tseemann/prokka)
+and visualised with
+[DNA Features Viewer](https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer)
+""") # noqa
             for contig in sorted(record_dict):
                 seq_record = record_dict[contig]
                 plot = gene_plot(seq_record)
-                section = report_doc.add_section()
-                section.markdown('##' + str(seq_record.id))
+                section.markdown('#####' + str(seq_record.id))
                 section.markdown('length:' + str(len(seq_record.seq)))
                 section.plot(plot)
     # canned VCF stats report component
+    section.markdown("* * *")
     section = report_doc.add_section()
     report_doc.add_section(
         section=scomponents.version_table(args.versions))
@@ -353,7 +362,7 @@ Forward reads are shown in light-blue, reverse reads are dark grey.
     # Footer section
     section = report_doc.add_section()
     section.markdown('''
-### About
+###About
 
 **Oxford Nanopore Technologies products are not intended for use for health
 assessment or to diagnose, treat, mitigate, cure or prevent any disease or
