@@ -191,6 +191,7 @@ process runProkka {
         tuple val(sample_id), path("consensus.fasta.gz")
     output:
         path "*prokka_results/*prokka.gbk"
+
     script:
         def prokka_opts = "${params.prokka_opts}" == null ? "${params.prokka_opts}" : ""
     """
@@ -198,6 +199,17 @@ process runProkka {
     gunzip -rf consensus.fasta.gz
     prokka $prokka_opts --outdir "${sample_id}.prokka_results" \
         --cpus $task.cpus --prefix "${sample_id}.prokka" *consensus.fasta
+    
+    """
+}
+
+
+process prokkaVersion {
+    label "prokka"
+    output:
+        path "prokka_version.txt"
+    """
+    prokka --version | sed 's/ /,/' >> "prokka_version.txt"
     """
 }
 
@@ -205,14 +217,19 @@ process runProkka {
 process getVersions {
     label "wfbacterialgenomes"
     cpus 1
+    input:
+        path "prokka_version.txt"
     output:
         path "versions.txt"
     """
+    cat "prokka_version.txt" >> versions.txt
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
     medaka --version | sed 's/ /,/' >> versions.txt
-    python -c "import pomoxis; print(f'pomoxis,{pomoxis}.__version__')" >> versions.txt
-    python -c "import tensorflow; print(f'tensorflow,{tensorflow}.__version__')" >> versions.txt
+    mosdepth --version | sed 's/ /,/' >> versions.txt
+    flye --version | sed 's/^/flye,/' >> versions.txt
+    python -c "import pomoxis; print(f'pomoxis,{pomoxis.__version__}')" >> versions.txt
+    python -c "import dna_features_viewer; print(f'dna_features_viewer,{dna_features_viewer.__version__}')" >> versions.txt
     """
 }
 
@@ -338,8 +355,8 @@ workflow calling_pipeline {
         } else {
             prokka = Channel.empty()
         }
-
-        software_versions = getVersions()
+        prokka_version = prokkaVersion()
+        software_versions = getVersions(prokka_version)
         workflow_params = getParams()
 
         report = makeReport(

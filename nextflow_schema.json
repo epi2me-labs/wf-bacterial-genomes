@@ -147,6 +147,12 @@
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
+                },
+                "analyse_unclassified": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
+                    "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 }
             }
         }
