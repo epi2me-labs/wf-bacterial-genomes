@@ -14,22 +14,18 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "reference-based", "de-novo", "evaluate-assemblies"]
+                "de-novo", "reference-based"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
-        - if: $MATRIX_NAME == "reference-based"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --evaluate_assemblies --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
-              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
         - if: $MATRIX_NAME == "de-novo"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "medakaVariant"
-        - if: $MATRIX_NAME == "evaluate-assemblies"
+        - if: $MATRIX_NAME == "reference-based"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000 --evaluate_assemblies"
-              NF_IGNORE_PROCESSES: "medakaVariant"
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
 
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed

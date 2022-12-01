@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.8]
+- Output QUAST stats for reference and denovo based assembly
+  
 ## [v0.2.7]
 ### Changes
 - Replace QUAST with MetaQUAST
@@ -13,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `-profile conda` is no longer supported, users should use `-profile standard` (Docker) or `-profile singularity` instead
 - Docs update
 ### Added
-- `nextflow run epi2me-labs/wf-human-variation --version` will now print the workflow version number and exit
+- `nextflow run epi2me-labs/wf-bacterial-genomes --version` will now print the workflow version number and exit
 ### Fixes
 - Prokka only runs in denovo assembly mode
 - Tidy up report code

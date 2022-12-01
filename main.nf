@@ -267,7 +267,7 @@ process makeReport {
         path "wf-bacterial-genomes-*.html"
     script:
         report_name = "wf-bacterial-genomes-report.html"
-        denovo = params.reference == null ? "--denovo" : ""
+        denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         samples = sample_ids.join(" ")
     // NOTE: the script assumes the various subdirectories
@@ -277,7 +277,7 @@ process makeReport {
     --versions versions \
     --params params.json \
     --output $report_name \
-    --sample_ids $samples \
+    --sample_ids $samples 
     """
 }
 
@@ -335,13 +335,8 @@ workflow calling_pipeline {
         consensus = medakaConsensus(hdfs_grouped)
 
         // post polishing, do assembly specific things
-        if (params.evaluate_assemblies){
-             log.info("Evaluating assemblies, set evaluate_assemblies param to False to skip.")
-             assem_stats = assemblyStats(consensus.collect({it -> it[1]}))
-        } else {
-             log.info("Not evaluating assemblies. Enable with --evaluate_assemblies true")
-             assem_stats = Channel.empty()
-        }
+        assem_stats = assemblyStats(consensus.collect({it -> it[1]}))
+        
         if (!params.reference_based_assembly){
             flye_info = denovo_assem.map { it -> it[2] }
         }else{
