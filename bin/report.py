@@ -6,6 +6,7 @@ import base64
 import io
 import os
 import re
+import sys
 
 from aplanat import report
 from aplanat.components import bcfstats
@@ -67,15 +68,13 @@ def bp_to_mb(input_num):
     return round(input_num / 1000000, 2)
 
 
-def run_qc_stats(
+def get_quant_stats(
         sample_names,
         read_stats_dir,
         read_stats_suffix,
-        quast_path,
-        flye_dir,
-        flye_suffix,
+        quast_path
 ):
-    """Run QC stats."""
+    """Get Quast Stats."""
     # read stats
     read_stats = collate_stats(
         read_stats_dir, sample_names, read_stats_suffix)
@@ -98,9 +97,6 @@ def run_qc_stats(
     read_stats_out.columns = [
         'Read count', 'Median read length (bp)', 'Mean read quality',
         'Read data (Mb)']
-
-    # quast stats
-
     quast_raw_data = pd.read_csv(
         os.path.join(quast_path, "transposed_report.tsv"),
         sep='\t',
@@ -109,7 +105,6 @@ def run_qc_stats(
         '.medaka', '', regex=True)
     quast_keep_cols = [12, 13, 14, 15]
     quast_filtered_data = quast_raw_data.iloc[:, quast_keep_cols].copy()
-    # Get flye stats
     quast_filtered_data.iloc[:, [1, 2, 3]] = bp_to_mb(
         quast_filtered_data.iloc[:, [1, 2, 3]])
     quast_filtered_data.columns = [
@@ -117,7 +112,18 @@ def run_qc_stats(
         'Largest contig (Mb)',
         'Total length (Mb)',
         'Reference length (Mb)']
+    quant_stats = pd.merge(
+        read_stats_out, quast_filtered_data, left_index=True,
+        right_index=True)
+    return quant_stats
 
+
+def get_flye_stats(
+        sample_names,
+        flye_dir,
+        flye_suffix
+):
+    """Get Flye stats."""
     # flye stats
     flye_stats = collate_stats(
         flye_dir, sample_names, flye_suffix)
@@ -128,14 +134,7 @@ def run_qc_stats(
     flye_circular = get_circular_stats(flye_stats)
     flye_out = pd.concat([flye_cov_mean, flye_circular['Y']], axis=1)
     flye_out.columns = ['Mean contig coverage', '# circular contigs']
-    # Merge
-    merged = pd.merge(
-        read_stats_out, quast_filtered_data, left_index=True,
-        right_index=True).merge(
-            flye_out, left_index=True, right_index=True)
-    merged.index.name = None
-
-    return merged
+    return flye_out
 
 
 def run_species_stats(species_stats_path, sample_names):
@@ -218,7 +217,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                 pass
             else:
                 final_files[name] = 'None'
-                raise FileNotFoundError(
+                sys.err.write(
                     'Missing {0} required for report for: {1}'.format(
                         name, sample_name))
         sample_files[sample_name] = final_files
@@ -253,45 +252,53 @@ def main():
         "Bacterial Genomes Summary Report",
         ("Results generated through the wf-bacterial-genomes Nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
+    quant_stats = get_quant_stats(
+        sample_names=args.sample_ids,
+        read_stats_dir="stats",
+        read_stats_suffix=".stats",
+        quast_path="quast_stats")
     if not args.denovo:
         report_doc.add_section().markdown(
             "Analysis was completed using an alignment with the provided "
             "reference and medaka was used for variant calling")
+        quant_stats.index.name = None
+        stats_table = quant_stats
     else:
         report_doc.add_section().markdown(
             "As no reference was provided the reads were assembled"
             " and corrected using flye and Medaka")
-        merged_stats_df = run_qc_stats(
-            sample_names=args.sample_ids,
-            read_stats_dir="stats",
-            read_stats_suffix=".stats",
-            quast_path="quast_stats",
-            flye_dir="flye_stats",
+        flye_stats = get_flye_stats(
+            sample_names=args.sample_ids, flye_dir="flye_stats",
             flye_suffix="_flye_stats.tsv")
-        section = report_doc.add_section()
+        merged = pd.merge(
+            quant_stats, flye_stats, left_index=True,
+            right_index=True)
+        merged.index.name = None
+        stats_table = merged
 
-        section.markdown("## Run summary statistics")
-        section.markdown("* * *")
-        section.markdown("#### Read and assembly statistics")
+    section = report_doc.add_section()
+    section.markdown("## Run summary statistics")
+    section.markdown("* * *")
+    section.markdown("#### Read and assembly statistics")
 
-        section.markdown(
-            "This section displays the read and assembly QC"
-            " statistics for all the samples in the run.")
+    section.markdown(
+        "This section displays the read and assembly QC"
+        " statistics for all the samples in the run.")
 
-        section.table(merged_stats_df, index=True)
-        section = report_doc.add_section()
-        section.markdown("#### Species ID")
+    section.table(stats_table, index=True)
+    section = report_doc.add_section()
+    section.markdown("#### Species ID")
 
-        section.markdown(
-            "This section displays the Species ID as determined by 16S."
-            " The table shows the percentage match of the 16S sequence"
-            " to the best match of  the SILVA 16S database.")
+    section.markdown(
+        "This section displays the Species ID as determined by 16S."
+        " The table shows the percentage match of the 16S sequence"
+        " to the best match of  the SILVA 16S database.")
 
-        species_stats = run_species_stats(
-            species_stats_path="quast_stats/quast_downloaded_references",
-            sample_names=args.sample_ids)
-        section.table(species_stats, index=True)
-        section.markdown('<br/>')
+    species_stats = run_species_stats(
+        species_stats_path="quast_stats/quast_downloaded_references",
+        sample_names=args.sample_ids)
+    section.table(species_stats, index=True)
+    section.markdown('<br/>')
 
     sample_files = gather_sample_files(
         args.sample_ids,

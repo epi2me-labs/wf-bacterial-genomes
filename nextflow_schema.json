@@ -21,24 +21,24 @@
                 },
                 "reference_based_assembly": {
                     "type": "boolean",
-                    "help_text": "By default de novo assembly will be performed with Flye. Enable this option if you have an appropriate reference for reference-based assembly. If enabled you must provide a reference.",
-                    "description": "Enable reference guided assembly instead of de novo assembly."
+                    "help_text": "By default de-novo assembly will be performed with Flye. Enable this to instead perform a reference-based consensus. A reference must be provided.",
+                    "description": "Enable reference guided assembly instead of de-novo assembly."
                 },
                 "reference": {
                     "type": "string",
                     "format": "file-path",
-                    "demo_data": "${projectDir}/test_data/ref",
                     "description": "Reference sequence FASTA file.",
-                    "help_text": "If provided this will be used to perform variant calling with Medaka. If not, the de novo assembly will be performed with Flye and Medaka."
+                    "help_text": "The reference sequence is used when performing reference-based assembly and may we used as a benchmark for de-novo assemblies."
                 },
-                "evaluate_assemblies": {
+                "summarise_assemblies": {
                     "type": "boolean",
-                    "description": "Evaluate the assemblies and compare metagenome assemblies based on alignments to close references",
-                    "help_text": "Will run MetaQUAST on the output assemblies and output quality stats."
+                    "hidden": true,
+                    "description": "Hidden for now because report code needs updating. Produce summary statistics and compare to standard reference databases.",
+                    "help_text": "Runs MetaQUAST with default parameters. Assemblies with be compared to the 16S SILVA database for analysis of sequence content."
                 },
                 "medaka_model": {
                     "type": "string",
-                    "default": "r941_prom_variant_g360",
+                    "default": "r941_min_hac_g507",
                     "description": "Medaka model name",
                     "help_text": "The correct Medaka model to use is determined by the Guppy basecaller version, see [Medaka Models](https://github.com/nanoporetech/medaka#models) for more information."
                 },
@@ -170,7 +170,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.2.7",
+            "default": "v0.2.8",
             "hidden": true
         },
         "monochrome_logs": {
