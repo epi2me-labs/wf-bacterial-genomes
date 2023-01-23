@@ -272,7 +272,7 @@ process makeReport {
         samples = sample_ids.join(" ")
     // NOTE: the script assumes the various subdirectories
     """
-    report.py \
+    workflow-glue report \
     $prokka $denovo \
     --versions versions \
     --params params.json \

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Create workflow report."""
 
-import argparse
 import base64
 import io
 import os
@@ -18,6 +17,7 @@ from bokeh.layouts import gridplot, layout
 from bokeh.models import Panel, Tabs
 from dna_features_viewer import BiopythonTranslator
 import pandas as pd
+from .util import wf_parser  # noqa: ABS101
 
 
 def collate_stats(
@@ -224,30 +224,8 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
     return sample_files
 
 
-def main():
+def main(args):
     """Run entry point."""
-    parser = argparse.ArgumentParser(
-        'Visualise mapula output',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        add_help=False)
-    parser.add_argument(
-        "--denovo", action="store_true",
-        help="Analysis performed de-novo assembly (or variant calling).")
-    parser.add_argument(
-        "--prokka", action="store_true",
-        help="Prokka analysis was performed.")
-    parser.add_argument(
-        "--versions", required=True,
-        help="directory containing CSVs containing name,version.")
-    parser.add_argument(
-        "--params", default=None, required=True,
-        help="A JSON file containing the workflow parameter key/values")
-    parser.add_argument("--output", help="Report output filename")
-    parser.add_argument("--stats", help="directory containing fastcat stats")
-
-    parser.add_argument("--sample_ids", nargs="+")
-
-    args = parser.parse_args()
     report_doc = report.HTMLReport(
         "Bacterial Genomes Summary Report",
         ("Results generated through the wf-bacterial-genomes Nextflow "
@@ -387,5 +365,22 @@ workflow can be run using `nextflow epi2me-labs/wf-bacterial-genomes --help`
     report_doc.write(args.output)
 
 
-if __name__ == "__main__":
-    main()
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("report")
+    parser.add_argument(
+        "--denovo", action="store_true",
+        help="Analysis performed de-novo assembly (or variant calling).")
+    parser.add_argument(
+        "--prokka", action="store_true",
+        help="Prokka analysis was performed.")
+    parser.add_argument(
+        "--versions", required=True,
+        help="directory containing CSVs containing name,version.")
+    parser.add_argument(
+        "--params", default=None, required=True,
+        help="A JSON file containing the workflow parameter key/values")
+    parser.add_argument("--output", help="Report output filename")
+    parser.add_argument("--stats", help="directory containing fastcat stats")
+    parser.add_argument("--sample_ids", nargs="+")
+    return parser
