@@ -36,11 +36,10 @@
                     "description": "Hidden for now because report code needs updating. Produce summary statistics and compare to standard reference databases.",
                     "help_text": "Runs MetaQUAST with default parameters. Assemblies with be compared to the 16S SILVA database for analysis of sequence content."
                 },
-                "medaka_model": {
+                "basecaller_cfg": {
                     "type": "string",
-                    "default": "r941_min_hac_g507",
-                    "description": "Medaka model name",
-                    "help_text": "The correct Medaka model to use is determined by the Guppy basecaller version, see [Medaka Models](https://github.com/nanoporetech/medaka#models) for more information."
+                    "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
+                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. Refer to the [model table on the Dorado repository for selecting a simplex basecalling model](https://github.com/nanoporetech/dorado#available-basecalling-models). The automatic selection can be overridden with the 'medaka_variant_model' and 'medaka_consensus_model' parameters."
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
@@ -50,7 +49,7 @@
             },
             "required": [
                 "fastq",
-                "medaka_model"
+                "basecaller_cfg"
             ]
         },
         "samples": {
@@ -114,6 +113,16 @@
                     "default": 2,
                     "description": "Number of CPU threads.",
                     "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
+                },
+                "medaka_consensus_model": {
+                    "type": "string",
+                    "description": "The name of a Medaka consensus model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
+                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead."
+                },
+                "medaka_variant_model": {
+                    "type": "string",
+                    "description": "The name of a Medaka variant model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
+                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka variant model. You can override this by providing a model with this option instead."
                 }
             }
         },
