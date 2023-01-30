@@ -21,7 +21,7 @@ docker-run:
         - if: $MATRIX_NAME == "de-novo"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --threads 4 --chunk_size 100000"
-              NF_IGNORE_PROCESSES: "medakaVariant"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantConsensus"
         - if: $MATRIX_NAME == "reference-based"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"

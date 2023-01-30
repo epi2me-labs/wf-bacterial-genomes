@@ -124,12 +124,38 @@ process medakaNetwork {
     label "wfbacterialgenomes"
     cpus 2
     input:
-        tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai")
+        tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
     output:
         tuple val(sample_id), path("*consensus_probs.hdf")
+    script:
+        def model = medaka_model
     """
+    medaka --version
+    echo ${model}
+    echo ${medaka_model}
     medaka consensus align.bam "${sample_id}.consensus_probs.hdf" \
-        --threads 2 --model "${params.medaka_model}" --region "${reg}"
+        --threads 2 --regions "${reg}" --model ${model}
+    """
+}
+
+
+process medakaVariantConsensus {
+    // run medaka consensus for each region
+
+    label "wfbacterialgenomes"
+    cpus 2
+    input:
+        tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
+    output:
+        tuple val(sample_id), path("*consensus_probs.hdf")
+    script:
+        def model = medaka_model
+    """
+    medaka --version
+    echo ${model}
+    echo ${medaka_model}
+    medaka consensus align.bam "${sample_id}.consensus_probs.hdf" \
+        --threads 2 --regions "${reg}" --model ${model}
     """
 }
 
@@ -299,6 +325,36 @@ process output {
 }
 
 
+process lookup_medaka_consensus_model {
+    label "wfbacterialgenomes"
+    input:
+        path("lookup_table")
+        val basecall_model
+    output:
+        stdout
+    shell:
+    '''
+    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_consensus")
+    echo $medaka_model
+    '''
+}
+
+
+process lookup_medaka_variant_model {
+    label "wfbacterialgenomes"
+    input:
+        path("lookup_table")
+        val basecall_model
+    output:
+        stdout
+    shell:
+    '''
+    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_variant")
+    echo $medaka_model
+    '''
+}
+
+
 // modular workflow
 workflow calling_pipeline {
     take:
@@ -329,8 +385,27 @@ workflow calling_pipeline {
             it -> return tuple(it.split(/&split!/)[0], it.split(/&split!/)[1])
         }
 
+        if(params.medaka_consensus_model) {
+            log.warn "Overriding Medaka Consensus model with ${params.medaka_consensus_model}."
+            medaka_consensus_model = Channel.fromPath(params.medaka_consensus_model, type: "dir", checkIfExists: true)
+        }
+        else {
+            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
+            medaka_consensus_model = lookup_medaka_consensus_model(lookup_table, params.basecaller_cfg)
+        }
+        if(params.medaka_variant_model) {
+            log.warn "Overriding Medaka Variant model with ${params.medaka_variant_model}."
+            medaka_variant_model = Channel.fromPath(params.medaka_variant_model, type: "dir", checkIfExists: true)
+        }
+        else {
+            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
+            medaka_variant_model = lookup_medaka_variant_model(lookup_table, params.basecaller_cfg)
+        }
+
+        // medaka consensus
         regions_bams = named_regions.combine(alignments, by: [0])
-        hdfs = medakaNetwork(regions_bams)
+        regions_model = regions_bams.combine(medaka_consensus_model)
+        hdfs = medakaNetwork(regions_model)
         hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
 
@@ -343,8 +418,11 @@ workflow calling_pipeline {
             flye_info = Channel.empty()
         }
 
-        // call variants
+        // medaka variants
         if (params.reference_based_assembly){
+            bam_model = regions_bams.combine(medaka_variant_model)
+            hdfs_variant = medakaVariantConsensus(bam_model)
+            hdfs_grouped = hdfs_variant.groupTuple().combine(alignments, by: [0]).join(named_refs)
             variant = medakaVariant(hdfs_grouped)
             variants = variant.variant_stats
             vcf_variant = variant.variants
