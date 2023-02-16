@@ -91,7 +91,7 @@ process alignReads {
 process splitRegions {
     // split the bam reference sequences into overlapping sub-regions
 
-    label "wfbacterialgenomes"
+    label "medaka"
     cpus 1
     input:
         tuple val(sample_id), path("align.bam"), path("align.bam.bai")
@@ -121,7 +121,7 @@ process splitRegions {
 process medakaNetwork {
     // run medaka consensus for each region
 
-    label "wfbacterialgenomes"
+    label "medaka"
     cpus 2
     input:
         tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
@@ -142,7 +142,7 @@ process medakaNetwork {
 process medakaVariantConsensus {
     // run medaka consensus for each region
 
-    label "wfbacterialgenomes"
+    label "medaka"
     cpus 2
     input:
         tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
@@ -161,7 +161,7 @@ process medakaVariantConsensus {
 
 
 process medakaVariant {
-    label "wfbacterialgenomes"
+    label "medaka"
     cpus 1
     input:
         tuple val(sample_id), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
@@ -195,7 +195,7 @@ process assemblyStats {
 
 
 process medakaConsensus {
-    label "wfbacterialgenomes"
+    label "medaka"
     cpus 1
     input:
         tuple val(sample_id), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("reference*")
@@ -239,19 +239,29 @@ process prokkaVersion {
     """
 }
 
+process medakaVersion {
+    label "medaka"
+    input:
+        path "input_versions.txt"
+    output:
+        path "medaka_version.txt"
+    """
+    cat "input_versions.txt" >> "medaka_version.txt"
+    medaka --version | sed 's/ /,/' >> "medaka_version.txt"
+    """
+}
 
 process getVersions {
     label "wfbacterialgenomes"
     cpus 1
     input:
-        path "prokka_version.txt"
+        path "input_versions.txt"
     output:
         path "versions.txt"
     """
-    cat "prokka_version.txt" >> versions.txt
+    cat "input_versions.txt" >> versions.txt
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
-    medaka --version | sed 's/ /,/' >> versions.txt
     mosdepth --version | sed 's/ /,/' >> versions.txt
     flye --version | sed 's/^/flye,/' >> versions.txt
     python -c "import pomoxis; print(f'pomoxis,{pomoxis.__version__}')" >> versions.txt
@@ -387,7 +397,7 @@ workflow calling_pipeline {
 
         if(params.medaka_consensus_model) {
             log.warn "Overriding Medaka Consensus model with ${params.medaka_consensus_model}."
-            medaka_consensus_model = Channel.fromPath(params.medaka_consensus_model, type: "dir", checkIfExists: true)
+            medaka_consensus_model = Channel.fromList([params.medaka_consensus_model])
         }
         else {
             lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
@@ -395,7 +405,7 @@ workflow calling_pipeline {
         }
         if(params.medaka_variant_model) {
             log.warn "Overriding Medaka Variant model with ${params.medaka_variant_model}."
-            medaka_variant_model = Channel.fromPath(params.medaka_variant_model, type: "dir", checkIfExists: true)
+            medaka_variant_model = Channel.fromList([params.medaka_variant_model])
         }
         else {
             lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
@@ -437,7 +447,8 @@ workflow calling_pipeline {
             prokka = Channel.empty()
         }
         prokka_version = prokkaVersion()
-        software_versions = getVersions(prokka_version)
+        medaka_version = medakaVersion(prokka_version)
+        software_versions = getVersions(medaka_version)
         workflow_params = getParams()
 
         report = makeReport(

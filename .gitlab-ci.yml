@@ -14,7 +14,7 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "de-novo", "reference-based"]
+                "de-novo", "reference-based", "check-model"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -25,6 +25,11 @@ docker-run:
         - if: $MATRIX_NAME == "reference-based"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
+        - if: $MATRIX_NAME == "check-model"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
+              --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
 
 
