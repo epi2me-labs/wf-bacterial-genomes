@@ -179,20 +179,6 @@ process medakaVariant {
     """
 }
 
-process assemblyStats {
-    label "wfbacterialgenomes"
-    cpus 1
-    input:
-         path(sample_assembly)
-
-    output:
-        tuple path("quast_output/combined_reference/transposed_report.tsv"), path("quast_output/quast_downloaded_references/")
-
-    """
-    metaquast.py -o quast_output -t $task.cpus ${sample_assembly}
-    """
-}
-
 
 process medakaConsensus {
     label "medaka"
@@ -297,7 +283,6 @@ process makeReport {
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
-        path "quast_stats/*"
         path "flye_stats/*"
     output:
         path "wf-bacterial-genomes-*.html"
@@ -418,9 +403,6 @@ workflow calling_pipeline {
         hdfs = medakaNetwork(regions_model)
         hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
-
-        // post polishing, do assembly specific things
-        assem_stats = assemblyStats(consensus.collect({it -> it[1]}))
         
         if (!params.reference_based_assembly){
             flye_info = denovo_assem.map { it -> it[2] }
@@ -461,7 +443,6 @@ workflow calling_pipeline {
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
             depth_stats.all.collect(),
-            assem_stats.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
         telemetry = workflow_params
         all_out = variants.concat(

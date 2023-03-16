@@ -63,61 +63,6 @@ def get_circular_stats(input_df, circular_col_name="circ."):
     return out_df
 
 
-def bp_to_mb(input_num):
-    """Convert bases to megabases."""
-    return round(input_num / 1000000, 2)
-
-
-def get_quant_stats(
-        sample_names,
-        read_stats_dir,
-        read_stats_suffix,
-        quast_path
-):
-    """Get Quast Stats."""
-    # read stats
-    read_stats = collate_stats(
-        read_stats_dir, sample_names, read_stats_suffix)
-    read_stats_filtered = read_stats.loc[:, [
-        'sample_name', 'read_length', 'mean_quality']]
-    # Out table
-    read_median = read_stats_filtered.groupby(
-        'sample_name')['read_length'].median()
-    read_quality = read_stats_filtered.groupby(
-        'sample_name')['mean_quality'].mean()
-    read_mb_sum = read_stats_filtered.groupby(
-        'sample_name')['read_length'].sum()
-    read_count = read_stats_filtered.groupby(
-        'sample_name')['read_length'].count()
-    read_stats_out = pd.concat(
-        [read_count,
-         read_median,
-         read_quality,
-         bp_to_mb(read_mb_sum)], axis=1)
-    read_stats_out.columns = [
-        'Read count', 'Median read length (bp)', 'Mean read quality',
-        'Read data (Mb)']
-    quast_raw_data = pd.read_csv(
-        os.path.join(quast_path, "transposed_report.tsv"),
-        sep='\t',
-        index_col=0)
-    quast_raw_data.index = quast_raw_data.index.astype(str).str.replace(
-        '.medaka', '', regex=True)
-    quast_keep_cols = [12, 13, 14, 15]
-    quast_filtered_data = quast_raw_data.iloc[:, quast_keep_cols].copy()
-    quast_filtered_data.iloc[:, [1, 2, 3]] = bp_to_mb(
-        quast_filtered_data.iloc[:, [1, 2, 3]])
-    quast_filtered_data.columns = [
-        '# contigs',
-        'Largest contig (Mb)',
-        'Total length (Mb)',
-        'Reference length (Mb)']
-    quant_stats = pd.merge(
-        read_stats_out, quast_filtered_data, left_index=True,
-        right_index=True)
-    return quant_stats
-
-
 def get_flye_stats(
         sample_names,
         flye_dir,
@@ -230,17 +175,12 @@ def main(args):
         "Bacterial Genomes Summary Report",
         ("Results generated through the wf-bacterial-genomes Nextflow "
             "workflow provided by Oxford Nanopore Technologies"))
-    quant_stats = get_quant_stats(
-        sample_names=args.sample_ids,
-        read_stats_dir="stats",
-        read_stats_suffix=".stats",
-        quast_path="quast_stats")
     if not args.denovo:
         report_doc.add_section().markdown(
             "Analysis was completed using an alignment with the provided "
             "reference and medaka was used for variant calling")
-        quant_stats.index.name = None
-        stats_table = quant_stats
+        # quant_stats.index.name = None
+        stats_table = None
     else:
         report_doc.add_section().markdown(
             "As no reference was provided the reads were assembled"
@@ -248,35 +188,16 @@ def main(args):
         flye_stats = get_flye_stats(
             sample_names=args.sample_ids, flye_dir="flye_stats",
             flye_suffix="_flye_stats.tsv")
-        merged = pd.merge(
-            quant_stats, flye_stats, left_index=True,
-            right_index=True)
-        merged.index.name = None
-        stats_table = merged
-
-    section = report_doc.add_section()
-    section.markdown("## Run summary statistics")
-    section.markdown("* * *")
-    section.markdown("#### Read and assembly statistics")
-
-    section.markdown(
-        "This section displays the read and assembly QC"
-        " statistics for all the samples in the run.")
-
-    section.table(stats_table, index=True)
-    section = report_doc.add_section()
-    section.markdown("#### Species ID")
-
-    section.markdown(
-        "This section displays the Species ID as determined by 16S."
-        " The table shows the percentage match of the 16S sequence"
-        " to the best match of  the SILVA 16S database.")
-
-    species_stats = run_species_stats(
-        species_stats_path="quast_stats/quast_downloaded_references",
-        sample_names=args.sample_ids)
-    section.table(species_stats, index=True)
-    section.markdown('<br/>')
+        stats_table = flye_stats
+        section = report_doc.add_section()
+        section.markdown("## Run summary statistics")
+        section.markdown("* * *")
+        section.markdown("#### Read and assembly statistics")
+        section.markdown(
+            "This section displays the read and assembly QC"
+            " statistics for all the samples in the run.")
+        if stats_table is not None:
+            section.table(stats_table, index=True)
 
     sample_files = gather_sample_files(
         args.sample_ids,

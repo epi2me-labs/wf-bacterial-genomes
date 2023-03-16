@@ -30,12 +30,6 @@
                     "description": "Reference sequence FASTA file.",
                     "help_text": "The reference sequence is used when performing reference-based assembly and may we used as a benchmark for de-novo assemblies."
                 },
-                "summarise_assemblies": {
-                    "type": "boolean",
-                    "hidden": true,
-                    "description": "Hidden for now because report code needs updating. Produce summary statistics and compare to standard reference databases.",
-                    "help_text": "Runs MetaQUAST with default parameters. Assemblies with be compared to the 16S SILVA database for analysis of sequence content."
-                },
                 "basecaller_cfg": {
                     "type": "string",
                     "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
