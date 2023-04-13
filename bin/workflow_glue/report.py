@@ -134,8 +134,6 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
             'variants', sample_name + '.variants.stats')
         depth = os.path.join(
             'total_depth', sample_name + '.total.regions.bed.gz')
-        stats = os.path.join(
-            'stats', sample_name + '.stats')
         prokka = os.path.join('prokka', sample_name + '.prokka.gbk')
         fwd = os.path.join('fwd', sample_name + '.fwd.regions.bed.gz')
         rev = os.path.join('rev', sample_name + '.rev.regions.bed.gz')
@@ -143,14 +141,12 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
             'depth_file': depth,
             'variants_file': variants,
             'prokka': prokka,
-            'stats': stats,
             'fwd': fwd,
             'rev': rev}
         final_files = {
             'depth_file': depth,
             'variants_file': variants,
             'prokka': prokka,
-            'stats': stats,
             'fwd': fwd,
             'rev': rev}
         for name, file in expected_files.items():
@@ -162,7 +158,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                 pass
             else:
                 final_files[name] = 'None'
-                sys.err.write(
+                sys.stderr.write(
                     'Missing {0} required for report for: {1}'.format(
                         name, sample_name))
         sample_files[sample_name] = final_files
@@ -199,17 +195,25 @@ def main(args):
         if stats_table is not None:
             section.table(stats_table, index=True)
 
+    # Read stats file
+    df_stats = pd.read_csv(args.stats[0], sep='\t')
+
+    # Gather stats files for each sample
     sample_files = gather_sample_files(
         args.sample_ids,
         args.denovo,
         args.prokka)
 
+    # Iterate over files and add to report
     for name, files in sample_files.items():
         section = report_doc.add_section()
         section.markdown('<br/>')
         section.markdown('## Sample: {}'.format(str(name)))
         section.markdown("* * *")
-        quality_df = pd.read_csv(files['stats'], sep='\t')
+        try:
+            quality_df = df_stats.loc[df_stats['sample_name'] == name]
+        except ValueError:
+            pass
         read_qual = fastcat.read_quality_plot(quality_df)
         read_length = fastcat.read_length_plot(quality_df)
         section = report_doc.add_section()
@@ -289,6 +293,7 @@ workflow can be run using `nextflow epi2me-labs/wf-bacterial-genomes --help`
 def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("report")
+    parser.add_argument("--stats", nargs='*', help="Fastcat per-read stats file(s).")
     parser.add_argument(
         "--denovo", action="store_true",
         help="Analysis performed de-novo assembly (or variant calling).")
@@ -302,6 +307,5 @@ def argparser():
         "--params", default=None, required=True,
         help="A JSON file containing the workflow parameter key/values")
     parser.add_argument("--output", help="Report output filename")
-    parser.add_argument("--stats", help="directory containing fastcat stats")
     parser.add_argument("--sample_ids", nargs="+")
     return parser
