@@ -5,34 +5,19 @@ import groovy.json.JsonBuilder
 
 include { fastq_ingress } from './lib/fastqingress'
 
-
-process concatFastq {
-    label "wfbacterialgenomes"
-    cpus 1
-    input:
-        tuple path("input"), val(meta)
-    output:
-        tuple val(meta.sample_id), path("${meta.sample_id}.reads.fastq.gz"), emit: read
-        path "*stats*", emit: stats
-    shell:
-    """
-    # TODO: could do better here
-    fastcat -s "${meta.sample_id}" -r "${meta.sample_id}.stats" -x input | bgzip > "${meta.sample_id}.reads.fastq.gz"
-    SAMPLE_ID="${meta.sample_id}"
-    """
-}
+OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 
 
 process readStats {
     label "wfbacterialgenomes"
     cpus 1
     input:
-        tuple val(sample_id), path("align.bam"), path("align.bam.bai")
+        tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
         path "*readstats.txt", emit: stats
     """
-    bamstats align.bam > "${sample_id}.readstats.txt"
-    if [[ \$(wc -l <"${sample_id}.readstats.txt") -le 1 ]]; then
+    bamstats align.bam > "${meta.alias}.readstats.txt"
+    if [[ \$(wc -l <"${meta.alias}.readstats.txt") -le 1 ]]; then
         echo "No alignments of reads to reference sequence found."
         exit 1
     fi
@@ -44,16 +29,16 @@ process coverStats {
     label "wfbacterialgenomes"
     cpus 2
     input:
-        tuple val(sample_id), path("align.bam"), path("align.bam.bai")
+        tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
         path "*fwd.regions.bed.gz", emit: fwd
         path "*rev.regions.bed.gz", emit: rev
         path "*total.regions.bed.gz", emit: all
 
     """
-    mosdepth -n --fast-mode --by 200 --flag 16 -t $task.cpus "${sample_id}.fwd" align.bam
-    mosdepth -n --fast-mode --by 200 --include-flag 16 -t $task.cpus "${sample_id}.rev" align.bam
-    mosdepth -n --fast-mode --by 200 -t $task.cpus "${sample_id}.total" align.bam
+    mosdepth -n --fast-mode --by 200 --flag 16 -t $task.cpus "${meta.alias}.fwd" align.bam
+    mosdepth -n --fast-mode --by 200 --include-flag 16 -t $task.cpus "${meta.alias}.rev" align.bam
+    mosdepth -n --fast-mode --by 200 -t $task.cpus "${meta.alias}.total" align.bam
     """
 }
 
@@ -62,15 +47,15 @@ process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
     input:
-        tuple val(sample_id), path("reads.fastq.gz")
+        tuple val(meta), path("reads.fastq.gz")
     output:
-        tuple val(sample_id), path("${sample_id}.draft_assembly.fasta.gz"), path("${sample_id}_flye_stats.tsv")
+        tuple val(meta), path("${meta.alias}.draft_assembly.fasta.gz"), path("${meta.alias}_flye_stats.tsv")
     script:
     """
     flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}"
-    mv output/assembly.fasta "./${sample_id}.draft_assembly.fasta"
-    mv output/assembly_info.txt "./${sample_id}_flye_stats.tsv"
-    bgzip "${sample_id}.draft_assembly.fasta"
+    mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
+    mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
+    bgzip "${meta.alias}.draft_assembly.fasta"
     """
 }
 
@@ -79,11 +64,11 @@ process alignReads {
     label "wfbacterialgenomes"
     cpus params.threads
     input:
-        tuple val(sample_id), path("reads.fastq.gz"), path("ref.fasta.gz")
+        tuple val(meta), path("reads.fastq.gz"), path("ref.fasta.gz")
     output:
-        tuple val(sample_id), path("*reads2ref.bam"), path("*reads2ref.bam.bai")
+        tuple val(meta), path("*reads2ref.bam"), path("*reads2ref.bam.bai")
     """
-    mini_align -i reads.fastq.gz -r ref.fasta.gz -p "${sample_id}.reads2ref" -t $task.cpus -m
+    mini_align -i reads.fastq.gz -r ref.fasta.gz -p "${meta.alias}.reads2ref" -t $task.cpus -m
     """
 }
 
@@ -94,7 +79,7 @@ process splitRegions {
     label "medaka"
     cpus 1
     input:
-        tuple val(sample_id), path("align.bam"), path("align.bam.bai")
+        tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
         stdout
     """
@@ -109,7 +94,7 @@ process splitRegions {
     region_list = []
     for reg in regions:
         # don't ask...just grep &split!
-        print("${sample_id}" + '&split!' + str(reg))
+        print("${meta.alias}" + '&split!' + str(reg))
     """
 }
 
@@ -124,16 +109,16 @@ process medakaNetwork {
     label "medaka"
     cpus 2
     input:
-        tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
-        tuple val(sample_id), path("*consensus_probs.hdf")
+        tuple val(meta), path("*consensus_probs.hdf")
     script:
         def model = medaka_model
     """
     medaka --version
     echo ${model}
     echo ${medaka_model}
-    medaka consensus align.bam "${sample_id}.consensus_probs.hdf" \
+    medaka consensus align.bam "${meta.alias}.consensus_probs.hdf" \
         --threads 2 --regions "${reg}" --model ${model}
     """
 }
@@ -145,16 +130,16 @@ process medakaVariantConsensus {
     label "medaka"
     cpus 2
     input:
-        tuple val(sample_id), val(reg), path("align.bam"), path("align.bam.bai"), val(medaka_model)
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
-        tuple val(sample_id), path("*consensus_probs.hdf")
+        tuple val(meta), path("*consensus_probs.hdf")
     script:
         def model = medaka_model
     """
     medaka --version
     echo ${model}
     echo ${medaka_model}
-    medaka consensus align.bam "${sample_id}.consensus_probs.hdf" \
+    medaka consensus align.bam "${meta.alias}.consensus_probs.hdf" \
         --threads 2 --regions "${reg}" --model ${model}
     """
 }
@@ -164,18 +149,18 @@ process medakaVariant {
     label "medaka"
     cpus 1
     input:
-        tuple val(sample_id), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
+        tuple val(meta), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
     output:
-        path "${sample_id}.medaka.vcf.gz", emit: variants
-        path "${sample_id}.variants.stats", emit: variant_stats
+        path "${meta.alias}.medaka.vcf.gz", emit: variants
+        path "${meta.alias}.variants.stats", emit: variant_stats
     // note: extension on ref.fasta.gz might not be accurate but shouldn't (?) cause issues.
     //       Also the first step may create an index if not already existing so the alternative
     //       reference.* will break
     """
     medaka variant ref.fasta.gz consensus_probs*.hdf vanilla.vcf
-    medaka tools annotate vanilla.vcf ref.fasta.gz align.bam "${sample_id}.medaka.vcf"
-    bgzip -i "${sample_id}.medaka.vcf"
-    bcftools stats  "${sample_id}.medaka.vcf.gz" > "${sample_id}.variants.stats"
+    medaka tools annotate vanilla.vcf ref.fasta.gz align.bam "${meta.alias}.medaka.vcf"
+    bgzip -i "${meta.alias}.medaka.vcf"
+    bcftools stats  "${meta.alias}.medaka.vcf.gz" > "${meta.alias}.variants.stats"
     """
 }
 
@@ -184,13 +169,13 @@ process medakaConsensus {
     label "medaka"
     cpus 1
     input:
-        tuple val(sample_id), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("reference*")
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("consensus_probs*.hdf"), path("reference*")
     output:
-        tuple val(sample_id), path("${sample_id}.medaka.fasta.gz")
+        tuple val(meta), path("${meta.alias}.medaka.fasta.gz")
 
     """
-    medaka stitch --threads $task.cpus consensus_probs*.hdf reference* "${sample_id}.medaka.fasta"
-    bgzip "${sample_id}.medaka.fasta"
+    medaka stitch --threads $task.cpus consensus_probs*.hdf reference* "${meta.alias}.medaka.fasta"
+    bgzip "${meta.alias}.medaka.fasta"
     """
 }
 
@@ -200,17 +185,16 @@ process runProkka {
     label "prokka"
     cpus params.threads
     input:
-        tuple val(sample_id), path("consensus.fasta.gz")
+        tuple val(meta), path("consensus.fasta.gz")
     output:
         path "*prokka_results/*prokka.gbk"
 
     script:
         def prokka_opts = "${params.prokka_opts}" == null ? "${params.prokka_opts}" : ""
     """
-    echo $sample_id
     gunzip -rf consensus.fasta.gz
-    prokka $prokka_opts --outdir "${sample_id}.prokka_results" \
-        --cpus $task.cpus --prefix "${sample_id}.prokka" *consensus.fasta
+    prokka $prokka_opts --outdir "${meta.alias}.prokka_results" \
+        --cpus $task.cpus --prefix "${meta.alias}.prokka" *consensus.fasta
     
     """
 }
@@ -279,7 +263,7 @@ process makeReport {
         path "variants/*"
         val sample_ids
         path "prokka/*"
-        path "stats/*"
+        path per_read_stats
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
@@ -291,9 +275,12 @@ process makeReport {
         denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         samples = sample_ids.join(" ")
+        String stats_args = \
+            (per_read_stats.name == OPTIONAL_FILE.name) ? "" : "--stats $per_read_stats"
     // NOTE: the script assumes the various subdirectories
     """
     workflow-glue report \
+    $stats_args \
     $prokka $denovo \
     --versions versions \
     --params params.json \
@@ -350,26 +337,59 @@ process lookup_medaka_variant_model {
 }
 
 
+// Creates a new directory named after the sample alias and moves the fastcat results
+// into it.
+process collectFastqIngressResultsInDir {
+    label "wfbacterialgenomes"
+    input:
+        // both the fastcat seqs as well as stats might be `OPTIONAL_FILE` --> stage in
+        // different sub-directories to avoid name collisions
+        tuple val(meta), path(concat_seqs, stageAs: "seqs/*"), path(fastcat_stats,
+            stageAs: "stats/*")
+    output:
+        // use sub-dir to avoid name clashes (in the unlikely event of a sample alias
+        // being `seq` or `stats`)
+        path "out/*"
+    script:
+    String outdir = "out/${meta["alias"]}"
+    String metaJson = new JsonBuilder(meta).toPrettyString()
+    String concat_seqs = \
+        (concat_seqs.fileName.name == OPTIONAL_FILE.name) ? "" : concat_seqs
+    String fastcat_stats = \
+        (fastcat_stats.fileName.name == OPTIONAL_FILE.name) ? "" : fastcat_stats
+    """
+    mkdir -p $outdir
+    echo '$metaJson' > metamap.json
+    mv metamap.json $concat_seqs $fastcat_stats $outdir
+    """
+}
+
 // modular workflow
 workflow calling_pipeline {
     take:
         reads
         reference
     main:
-        reads = concatFastq(reads)
-        sample_ids = reads.read.map { it -> it[0] }
+ 
+        per_read_stats = reads.map {
+            it[2] ? it[2].resolve('per-read-stats.tsv') : null
+        }
+        | collectFile ( keepHeader: true )
+        | ifEmpty ( OPTIONAL_FILE )
+        input_reads = reads.map { meta, reads, stats -> [meta, reads] }
+        sample_ids = reads.map { meta, reads, stats -> meta.alias }
         if (params.reference_based_assembly && !params.reference){
             throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
         }
         if (!params.reference_based_assembly){
             log.info("Running Denovo assembly.")
-            denovo_assem = deNovo(reads.read)
+            denovo_assem = deNovo(input_reads)
             named_refs = denovo_assem.map { it -> [it[0], it[1]] }
-            read_ref_groups = reads.read.join(named_refs)
+            read_ref_groups = input_reads.join(named_refs)
         } else {
             log.info("Reference based assembly selected.")
             references = channel.fromPath(params.reference)
-            read_ref_groups = reads.read.combine(references)
+            read_ref_groups = input_reads.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
         }
         alignments = alignReads(read_ref_groups)
@@ -398,10 +418,11 @@ workflow calling_pipeline {
         }
 
         // medaka consensus
-        regions_bams = named_regions.combine(alignments, by: [0])
+        named_alignments = alignments.map{ meta, bam, bai -> [meta.alias, meta, bam, bai] }
+        regions_bams = named_alignments.combine(named_regions, by: 0).map{it[1..-1]}
         regions_model = regions_bams.combine(medaka_consensus_model)
         hdfs = medakaNetwork(regions_model)
-        hdfs_grouped = hdfs.groupTuple().combine(alignments, by: [0]).join(named_refs)
+        hdfs_grouped = alignments.combine(hdfs.groupTuple(), by: 0).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
         
         if (!params.reference_based_assembly){
@@ -439,17 +460,22 @@ workflow calling_pipeline {
             variants.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             sample_ids.collect(),
             prokka.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
-            reads.stats.collect(),
+            per_read_stats,
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
             depth_stats.all.collect(),
             flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
         telemetry = workflow_params
+        fastq_stats = reads
+        // replace `null` with path to optional file
+        | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
+        | collectFastqIngressResultsInDir
         all_out = variants.concat(
             vcf_variant,
             consensus.map {it -> it[1]},
             report,
-            prokka)
+            prokka,
+            fastq_stats)
 
     emit:
         all_out
@@ -467,7 +493,10 @@ workflow {
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
-        "sample_sheet":params.sample_sheet])
+        "sample_sheet":params.sample_sheet,
+        "analyse_unclassified":params.analyse_unclassified,
+        "fastcat_stats": params.wf.fastcat_stats,
+        "fastcat_extra_args": ""])
 
     reference = params.reference
     results = calling_pipeline(samples, reference)
