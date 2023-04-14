@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
-### Updated
+### Fixed
+- Rows with too few / too many columns in `medaka_models.tsv`.
+### Changed
 - Now uses new `fastq_ingress` implementation.
 
 ## [v0.2.12]
