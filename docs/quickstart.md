@@ -31,3 +31,4 @@ The primary outputs of the workflow include:
 * a [VCF](https://en.wikipedia.org/wiki/Variant_Call_Format) file containing variants in the sample compared to the reference (if provided),
 * an HTML report document detailing QC metrics and the primary findings of the workflow,
 * (optionally) an annotation of the consensus sequence using prokka.
+* (optionally) a per-sample ResFinder output directory with various results.
