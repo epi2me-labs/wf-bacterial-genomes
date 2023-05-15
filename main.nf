@@ -4,12 +4,13 @@ nextflow.enable.dsl = 2
 import groovy.json.JsonBuilder
 
 include { fastq_ingress } from './lib/fastqingress'
+include { run_amr } from './modules/local/amr'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 
 
 process readStats {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus 1
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
@@ -26,7 +27,7 @@ process readStats {
 
 
 process coverStats {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus 2
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
@@ -44,7 +45,7 @@ process coverStats {
 
 
 process deNovo {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus params.threads
     input:
         tuple val(meta), path("reads.fastq.gz")
@@ -61,7 +62,7 @@ process deNovo {
 
 
 process alignReads {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus params.threads
     input:
         tuple val(meta), path("reads.fastq.gz"), path("ref.fasta.gz")
@@ -187,7 +188,7 @@ process runProkka {
     input:
         tuple val(meta), path("consensus.fasta.gz")
     output:
-        path "*prokka_results/*prokka.gbk"
+        tuple val(meta), path("*prokka_results/*prokka.gbk")
 
     script:
         def prokka_opts = "${params.prokka_opts}" == null ? "${params.prokka_opts}" : ""
@@ -222,7 +223,7 @@ process medakaVersion {
 }
 
 process getVersions {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus 1
     input:
         path "input_versions.txt"
@@ -241,7 +242,7 @@ process getVersions {
 
 
 process getParams {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus 1
     output:
         path "params.json"
@@ -255,7 +256,7 @@ process getParams {
 
 
 process makeReport {
-    label "wfbacterialgenomes"
+    label params.process_label
     cpus 1
     input:
         path "versions/*"
@@ -295,7 +296,7 @@ process makeReport {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    label "wfbacterialgenomes"
+    label params.process_label
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         path fname
@@ -308,7 +309,7 @@ process output {
 
 
 process lookup_medaka_consensus_model {
-    label "wfbacterialgenomes"
+    label params.process_label
     input:
         path("lookup_table")
         val basecall_model
@@ -323,7 +324,7 @@ process lookup_medaka_consensus_model {
 
 
 process lookup_medaka_variant_model {
-    label "wfbacterialgenomes"
+    label params.process_label
     input:
         path("lookup_table")
         val basecall_model
@@ -340,7 +341,7 @@ process lookup_medaka_variant_model {
 // Creates a new directory named after the sample alias and moves the fastcat results
 // into it.
 process collectFastqIngressResultsInDir {
-    label "wfbacterialgenomes"
+    label params.process_label
     input:
         // both the fastcat seqs as well as stats might be `OPTIONAL_FILE` --> stage in
         // different sub-directories to avoid name collisions
@@ -370,7 +371,6 @@ workflow calling_pipeline {
         reads
         reference
     main:
- 
         per_read_stats = reads.map {
             it[2] ? it[2].resolve('per-read-stats.tsv') : null
         }
@@ -449,6 +449,19 @@ workflow calling_pipeline {
         } else {
             prokka = Channel.empty()
         }
+
+        // amr calling
+        if (params.isolates) {
+            amr = run_amr(
+                consensus,
+                params.species,
+                "${params.resfinder_threshold}",
+                "${params.resfinder_coverage}")
+        } else {
+            amr = Channel.empty()
+        }
+
+
         prokka_version = prokkaVersion()
         medaka_version = medakaVersion(prokka_version)
         software_versions = getVersions(medaka_version)
@@ -459,7 +472,7 @@ workflow calling_pipeline {
             workflow_params,
             variants.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             sample_ids.collect(),
-            prokka.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            prokka.map{meta, gbk -> gbk}.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             per_read_stats,
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
@@ -472,10 +485,12 @@ workflow calling_pipeline {
         | collectFastqIngressResultsInDir
         all_out = variants.concat(
             vcf_variant,
-            consensus.map {it -> it[1]},
+            consensus.map {meta, assembly -> assembly},
             report,
-            prokka,
-            fastq_stats)
+            prokka.map {meta, prokka -> prokka},
+            fastq_stats,
+            amr.map {meta, resfinder -> resfinder}
+        )
 
     emit:
         all_out
