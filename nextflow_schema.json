@@ -96,6 +96,56 @@
                 }
             }
         },
+        "isolate_options": {
+            "title": "Isolate options",
+            "type": "object",
+            "fa_icon": "fas fa-arrow-left",
+            "description": "Parameters relating to antimicrobial resistance analysis with ResFinder.",
+            "properties": {
+                "species": {
+                    "type": "string",
+                    "default": "other",
+                    "description": "Species for antimicrobial resistance (AMR) search using ResFinder which is required for variant-based results.",
+                    "help_text": "If your species is not in the list, please select 'other' and only acquired AMR will be output.",
+                    "enum": [
+                        "campylobacter",
+                        "enterococcus_faecium",
+                        "neisseria_gonorrhoeae",
+                        "salmonella",
+                        "escherichia_coli",
+                        "klebsiella",
+                        "plasmodium_falciparum",
+                        "staphylococcus_aureus",
+                        "enterococcus_faecalis",
+                        "helicobacter_pylori",
+                        "mycobacterium_tuberculosis",
+                        "other"
+                    ]
+                },
+                "isolates": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run the Isolates pipeline on the assembly results if set to True.",
+                    "help_text": "Will scan the bacterial genome output contigs and return a table of any antimicrobial resistance genes."
+                },
+                "resfinder_version": {
+                    "type": "string",
+                    "default": "4.3.1",
+                    "description": "ResFinder version to use.",
+                    "help_text": "ResFinder is the tool used to check for antimicrobial resistance genes in isolates of bacteria."
+                },
+                "resfinder_threshold": {
+                    "type": "string",
+                    "default": "0.8",
+                    "description": "Threshold of required identity to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
+                },
+                "resfinder_coverage": {
+                    "type": "string",
+                    "default": "0.6",
+                    "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
+                }
+            }
+        },
         "advanced_options": {
             "title": "Advanced Options",
             "type": "object",
@@ -174,6 +224,9 @@
             "$ref": "#/definitions/output"
         },
         {
+            "$ref": "#/definitions/isolate_options"
+        },
+        {
             "$ref": "#/definitions/advanced_options"
         },
         {
@@ -184,6 +237,12 @@
         "aws_image_prefix": {
             "type": "string",
             "hidden": true
+        },
+        "process_label": {
+            "type": "string",
+            "description": "The main process label for template processes to use by default",
+            "hidden": true,
+            "default": "wf-template"
         },
         "aws_queue": {
             "type": "string",
@@ -204,7 +263,7 @@
         }
     },
     "docs": {
-        "intro": "# Introduction\n\nIf no reference is included assembly will be \ncompleted using [flye](https://github.com/fenderglass/Flye) and polished with \n[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided\nalignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\nand variant called using medaka. The workflow can optionally run\n[prokka](https://github.com/tseemann/prokka) to annotate the resulting\nconsensus sequence.\n",
-        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)"
+        "intro": "# Introduction\n\nIf no reference is included assembly will be \ncompleted using [flye](https://github.com/fenderglass/Flye) and polished with \n[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided\nalignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\nand variant called using medaka. The workflow has a few optional extras. It can run\n[prokka](https://github.com/tseemann/prokka) to annotate the resulting\nconsensus sequence or [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/) to check it against a database of antimicrobial resistance genes.\n",
+        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [Singularity](https://sylabs.io/singularity/)\n* [flye](https://github.com/fenderglass/Flye)\n* [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\n* [prokka](https://github.com/tseemann/prokka)\n* [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/)"
     }
 }
