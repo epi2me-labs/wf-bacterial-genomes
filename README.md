@@ -11,9 +11,9 @@ If no reference is included assembly will be
 completed using [flye](https://github.com/fenderglass/Flye) and polished with 
 [medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided
 alignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)
-and variant called using medaka. The workflow can optionally run
+and variant called using medaka. The workflow has a few optional extras. It can run
 [prokka](https://github.com/tseemann/prokka) to annotate the resulting
-consensus sequence.
+consensus sequence or [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/) to check it against a database of antimicrobial resistance genes.
 
 
 
@@ -51,7 +51,7 @@ The primary outputs of the workflow include:
 * a [VCF](https://en.wikipedia.org/wiki/Variant_Call_Format) file containing variants in the sample compared to the reference (if provided),
 * an HTML report document detailing QC metrics and the primary findings of the workflow,
 * (optionally) an annotation of the consensus sequence using prokka.
-
+* (optionally) a per-sample ResFinder output directory with various results.
 
 
 
@@ -59,3 +59,8 @@ The primary outputs of the workflow include:
 
 * [nextflow](https://www.nextflow.io/)
 * [docker](https://www.docker.com/products/docker-desktop)
+* [Singularity](https://sylabs.io/singularity/)
+* [flye](https://github.com/fenderglass/Flye)
+* [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)
+* [prokka](https://github.com/tseemann/prokka)
+* [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/)
