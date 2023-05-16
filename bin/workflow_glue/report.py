@@ -63,7 +63,7 @@ def get_flye_stats(sample_names, flye_dir, flye_suffix):
     return flye_out
 
 
-def gather_sample_files(sample_names, denovo_mode, prokka_mode):
+def gather_sample_files(sample_names, denovo_mode, prokka_mode, resfinder_mode):
     """Collect files required for the report per sample and make sure they exist."""
     sample_files = {}
     subdirs_and_suffixes = {
@@ -72,6 +72,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
         "rev_depth": ["rev", "rev.regions.bed.gz"],
         "variants": ["variants", "variants.stats"],
         "prokka": ["prokka", "prokka.gff"],
+        "resfinder": ["resfinder", "resfinder_results.txt"]
     }
     for sample_name in sorted(sample_names):
         files = {}
@@ -85,6 +86,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                 file_type in ("total_depth", "fwd_depth", "rev_depth")
                 or (file_type == "variants" and not denovo_mode)
                 or (file_type == "prokka" and prokka_mode)
+                or (file_type == "resfinder" and resfinder_mode)
             ):
                 if not os.path.exists(file):
                     raise ValueError(
@@ -279,7 +281,8 @@ def main(args):
 
     # Gather stats files for each sample (will be used by the various report sections
     # below)
-    sample_files = gather_sample_files(args.sample_ids, args.denovo, args.prokka)
+    sample_files = gather_sample_files(
+        args.sample_ids, args.denovo, args.prokka, args.resfinder)
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(
@@ -398,7 +401,26 @@ def main(args):
                             columns=lambda col: col[0].upper() + col[1:]
                         )
                         DataTable.from_pandas(prokka_df, use_index=False)
-
+    if args.resfinder:
+        with report.add_section("Antimicrobial resistance", "AMR"):
+            html_raw(
+                """
+                The contigs were analysed for antimicrobial resistance using
+                <a href="https://bitbucket.org/genomicepidemiology/resfinder/src/master/">
+                ResFinder</a>. You can use the
+                dropdown menu to select different samples.
+                """ # noqa
+            )
+            # add a table with the `resfinder` features for each sample
+            tabs = Tabs()
+            with tabs.add_dropdown_menu():
+                for name, files in sample_files.items():
+                    with tabs.add_dropdown_tab(name):
+                        resfinder_df = pd.read_csv(
+                            files["resfinder"], sep='\t').rename(
+                            columns=lambda col: col[0].upper() + col[1:]
+                        )
+                        DataTable.from_pandas(resfinder_df, use_index=False)
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
 
@@ -414,6 +436,10 @@ def argparser():
     )
     parser.add_argument(
         "--prokka", action="store_true", help="Prokka analysis was performed."
+    )
+    parser.add_argument(
+        "--resfinder", action="store_true",
+        help="Resfinder antimicrobial resistance analysis was performed."
     )
     parser.add_argument(
         "--versions",

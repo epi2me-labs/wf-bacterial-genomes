@@ -13,7 +13,7 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr]
+            - MATRIX_NAME: [de-novo, amr, amr-species]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -37,6 +37,11 @@ docker-run:
               --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
         - if: $MATRIX_NAME == "amr"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+                  --fastq test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
+              NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
+        - if: $MATRIX_NAME == "amr-species"
           variables:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
                   --fastq test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --species mycobacterium_tuberculosis"
