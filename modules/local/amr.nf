@@ -15,6 +15,21 @@ process resfinderAcquiredOnly {
 }
 
 
+process processResfinderAquired {
+    label "wfbacterialgenomes"
+    input:
+        tuple val(meta), path("${meta.alias}_resfinder_results")
+    output:
+        path("${meta.alias}.resfinder_results.txt")
+    script:
+    """
+    workflow-glue process_resfinder \
+        --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
+        --output ${meta.alias}.resfinder_results.txt
+    """
+}
+
+
 process resfinderFull {
     label "amr"
     containerOptions '--entrypoint=""'
@@ -44,6 +59,24 @@ process resfinderFull {
 }
 
 
+process processResfinderFull {
+    label "wfbacterialgenomes"
+    input:
+        tuple val(meta), path("${meta.alias}_resfinder_results")
+    output:
+        path("${meta.alias}.resfinder_results.txt")
+    script:
+    """
+    workflow-glue process_resfinder \
+        --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
+        --pointfinder_file ${meta.alias}_resfinder_results/PointFinder_results.txt \
+        --output ${meta.alias}.resfinder_results.txt \
+        --database_location ${meta.alias}_resfinder_results/pointfinder_blast/tmp/
+    """
+}
+
+
+
 workflow run_amr {
    take:
       consensus
@@ -57,10 +90,13 @@ workflow run_amr {
         // e.g that point mutations were searched for when they were not
         if (species == "other"){
             amr_results = resfinderAcquiredOnly(consensus)
+            processed = processResfinderAquired(amr_results)
         } else {
              // if there is a species for the sample then do full amr calling
             amr_results = resfinderFull(consensus, species, resfinder_threshold, resfinder_coverage)
+            processed = processResfinderFull(amr_results)
         }
    emit:
       amr = amr_results
+      report_table = processed
 }

@@ -271,12 +271,14 @@ process makeReport {
         path "rev/*"
         path "total_depth/*"
         path "flye_stats/*"
+        path "resfinder/*"
     output:
         path "wf-bacterial-genomes-*.html"
     script:
         report_name = "wf-bacterial-genomes-report.html"
         denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
+        resfinder = params.isolates as Boolean ? "--resfinder" : ""
         samples = sample_ids.join(" ")
         String stats_args = \
             (per_read_stats.name == OPTIONAL_FILE.name) ? "" : "--stats $per_read_stats"
@@ -285,10 +287,11 @@ process makeReport {
     workflow-glue report \
     $stats_args \
     $prokka $denovo \
+    $resfinder \
     --versions versions \
     --params params.json \
     --output $report_name \
-    --sample_ids $samples 
+    --sample_ids $samples
     """
 }
 
@@ -454,13 +457,16 @@ workflow calling_pipeline {
 
         // amr calling
         if (params.isolates) {
-            amr = run_amr(
+            run_amr = run_amr(
                 consensus,
                 params.species,
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
+            amr = run_amr.amr 
+            amr_results = run_amr.report_table
         } else {
             amr = Channel.empty()
+            amr_results = Channel.empty()
         }
 
 
@@ -479,7 +485,8 @@ workflow calling_pipeline {
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
             depth_stats.all.collect(),
-            flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
+            flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            amr_results.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
