@@ -128,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Variant call summary produced using aplanat report component.
 
 ## [v0.0.1]
-* Initial release
+- Initial release
 
 ### Added
 - Basic running of medaka variant calling and report.
