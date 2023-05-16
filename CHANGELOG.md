@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - `--isolates` parameter that will run the ResFinder tool on the final assembly to output antimicrobial resistance genes.
-  
+### Changed
+- Report is now created with `ezcharts`.
+
 ## [v0.2.13]
 ### Fixed
 - Rows with too few / too many columns in `medaka_models.tsv`.

@@ -53,6 +53,7 @@ process deNovo {
         tuple val(meta), path("${meta.alias}.draft_assembly.fasta.gz"), path("${meta.alias}_flye_stats.tsv")
     script:
     """
+    echo memory: $task.memory
     flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}"
     mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
     mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
@@ -188,15 +189,14 @@ process runProkka {
     input:
         tuple val(meta), path("consensus.fasta.gz")
     output:
-        tuple val(meta), path("*prokka_results/*prokka.gbk")
+        path "*prokka_results/*prokka.gff"
 
     script:
-        def prokka_opts = "${params.prokka_opts}" == null ? "${params.prokka_opts}" : ""
+        def prokka_opts = params.prokka_opts ?: ""
     """
     gunzip -rf consensus.fasta.gz
     prokka $prokka_opts --outdir "${meta.alias}.prokka_results" \
         --cpus $task.cpus --prefix "${meta.alias}.prokka" *consensus.fasta
-    
     """
 }
 
@@ -210,6 +210,7 @@ process prokkaVersion {
     """
 }
 
+
 process medakaVersion {
     label "medaka"
     input:
@@ -221,6 +222,7 @@ process medakaVersion {
     medaka --version | sed 's/ /,/' >> "medaka_version.txt"
     """
 }
+
 
 process getVersions {
     label params.process_label
@@ -472,13 +474,12 @@ workflow calling_pipeline {
             workflow_params,
             variants.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             sample_ids.collect(),
-            prokka.map{meta, gbk -> gbk}.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            prokka.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
             per_read_stats,
             depth_stats.fwd.collect(),
             depth_stats.rev.collect(),
             depth_stats.all.collect(),
             flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
-        telemetry = workflow_params
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
@@ -487,14 +488,14 @@ workflow calling_pipeline {
             vcf_variant,
             consensus.map {meta, assembly -> assembly},
             report,
-            prokka.map {meta, prokka -> prokka},
+            prokka,
             fastq_stats,
-            amr.map {meta, resfinder -> resfinder}
+            amr.map {meta, resfinder -> resfinder},
+            workflow_params
         )
 
     emit:
         all_out
-        telemetry
 }
 
 
