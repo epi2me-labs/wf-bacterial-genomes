@@ -53,7 +53,6 @@ process deNovo {
         tuple val(meta), path("${meta.alias}.draft_assembly.fasta.gz"), path("${meta.alias}_flye_stats.tsv")
     script:
     """
-    echo memory: $task.memory
     flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}"
     mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
     mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"

@@ -63,7 +63,7 @@ def get_flye_stats(sample_names, flye_dir, flye_suffix):
     return flye_out
 
 
-def gather_sample_files(sample_names, denovo_mode, prokka_mode, resfinder_mode):
+def gather_sample_files(sample_names, denovo_mode, prokka_mode):
     """Collect files required for the report per sample and make sure they exist."""
     sample_files = {}
     subdirs_and_suffixes = {
@@ -86,13 +86,15 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, resfinder_mode):
                 file_type in ("total_depth", "fwd_depth", "rev_depth")
                 or (file_type == "variants" and not denovo_mode)
                 or (file_type == "prokka" and prokka_mode)
-                or (file_type == "resfinder" and resfinder_mode)
             ):
                 if not os.path.exists(file):
                     raise ValueError(
                         f"Required file '{file_type}' missing "
                         f"for sample '{sample_name}'."
                     )
+            elif (file_type == "resfinder"):
+                if not os.path.exists(file):
+                    file = None
             else:
                 # this covers the cases when files are not needed (e.g. `variants` when
                 # doing a de-novo assembly)
@@ -282,7 +284,7 @@ def main(args):
     # Gather stats files for each sample (will be used by the various report sections
     # below)
     sample_files = gather_sample_files(
-        args.sample_ids, args.denovo, args.prokka, args.resfinder)
+        args.sample_ids, args.denovo, args.prokka)
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(
@@ -362,12 +364,16 @@ def main(args):
                             else None
                         )
                         # now the indel length histogram
-                        indel_lengths_df = bcf_stats["IDD"].query("sample == @sample")
-                        indel_hist = (
-                            get_indel_length_histogram(indel_lengths_df)
-                            if not indel_lengths_df.empty
-                            else None
-                        )
+                        indel_hist = None
+                        if (
+                            "IDD" in bcf_stats
+                            and not (
+                                indel_lengths_df := bcf_stats["IDD"].query(
+                                    "sample == @sample"
+                                )
+                            ).empty
+                        ):
+                            indel_hist = get_indel_length_histogram(indel_lengths_df)
                         with Grid():
                             if subst_heatmap is not None:
                                 EZChart(subst_heatmap, "epi2melabs")
@@ -416,11 +422,20 @@ def main(args):
             with tabs.add_dropdown_menu():
                 for name, files in sample_files.items():
                     with tabs.add_dropdown_tab(name):
-                        resfinder_df = pd.read_csv(
-                            files["resfinder"], sep='\t').rename(
-                            columns=lambda col: col[0].upper() + col[1:]
-                        )
-                        DataTable.from_pandas(resfinder_df, use_index=False)
+                        if files["resfinder"] is None:
+                            html_raw("""
+                <b>
+                Resfinder did not work for this sample.
+                Please check that species and reference parameters are relevant
+                to the sample.</b>
+                """)
+                        else:
+
+                            resfinder_df = pd.read_csv(
+                                files["resfinder"], sep='\t').rename(
+                                columns=lambda col: col[0].upper() + col[1:]
+                            )
+                            DataTable.from_pandas(resfinder_df, use_index=False)
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
 
