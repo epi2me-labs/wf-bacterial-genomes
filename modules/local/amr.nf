@@ -2,15 +2,15 @@
 
 process resfinderAcquiredOnly {
     label "amr"
-    containerOptions '--entrypoint=""'
+    errorStrategy 'ignore'
     input:
         tuple val(meta), path("input_genome.fasta.gz")
     output:
-        tuple val(meta), path("${meta.alias}_resfinder_results")
+        tuple val(meta), path("${meta.alias}_resfinder_results"), optional: true
     script:
     """
     gunzip -c input_genome.fasta.gz > input_genome.fasta
-    python -m resfinder --acquired -ifa input_genome.fasta --outputPath ${meta.alias}_resfinder_results 
+    python -m resfinder --acquired -ifa input_genome.fasta --outputPath ${meta.alias}_resfinder_results || exit 0
     """
 }
 
@@ -32,7 +32,7 @@ process processResfinderAquired {
 
 process resfinderFull {
     label "amr"
-    containerOptions '--entrypoint=""'
+    errorStrategy 'ignore'
     input:
         tuple val(meta), path("input_genome.fasta.gz")
         val species
@@ -54,7 +54,7 @@ process resfinderFull {
         -s "${species_input}" \
         --point \
         -ifa input_genome.fasta \
-        --disinfectant
+        --disinfectant || exit 0
     """
 }
 
