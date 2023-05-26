@@ -20,17 +20,32 @@ from .parsers import (  # noqa: ABS101
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
-def collate_stats(dir_path, sample_names, suffix, input_sep="\t", **kwargs):
+def collate_flye_stats(dir_path, sample_names, suffix, input_sep="\t", **kwargs):
     """Collate stats files."""
-    dfs = list()
+    dfs = []
+    valid_samples = []
     for sample_name in sample_names:
         file_path = os.path.join(dir_path, sample_name + suffix)
-        df = pd.read_csv(file_path, sep=input_sep, **kwargs)
-        dfs.append(df)
-    return pd.concat(dfs, axis=0, keys=sample_names)
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path, sep=input_sep, **kwargs)
+            dfs.append(df)
+            valid_samples.append(sample_name)
+    samples_with_missing_files = sorted(set(sample_names) - set(valid_samples))
+    if not dfs:
+        # not a single sample with a valid assembly
+        return None, samples_with_missing_files
+    else:
+        return (
+            pd.concat(
+                dfs,
+                axis=0,
+                keys=valid_samples,
+            ),
+            samples_with_missing_files,
+        )
 
 
-def get_circular_stats(input_df, circular_col_name="circ."):
+def get_circular_flye_stats(input_df, circular_col_name="circ."):
     """Parse flye output for stats on circularisation."""
     circular = input_df.groupby(level=0)[circular_col_name].value_counts()
     circular = circular.unstack()
@@ -51,16 +66,20 @@ def get_circular_stats(input_df, circular_col_name="circ."):
 def get_flye_stats(sample_names, flye_dir, flye_suffix):
     """Get Flye stats."""
     # flye stats
-    flye_stats = collate_stats(flye_dir, sample_names, flye_suffix)
+    flye_stats, samples_with_missing_files = collate_flye_stats(
+        flye_dir, sample_names, flye_suffix
+    )
+    if flye_stats is None:
+        return flye_stats, samples_with_missing_files
     flye_stats["circ."] = flye_stats["circ."].str.strip()
     flye_cov_mean = (
-        flye_stats[flye_stats["repeat"] == "N"].groupby(level=0)["cov."].mean()
+        flye_stats[flye_stats["repeat"] == "N"].groupby(level=0)["cov."].mean().round(2)
     )
     # flye_cov_mean = flye_cov_mean.reset_index()
-    flye_circular = get_circular_stats(flye_stats)
+    flye_circular = get_circular_flye_stats(flye_stats)
     flye_out = pd.concat([flye_cov_mean, flye_circular["Y"]], axis=1)
     flye_out.columns = ["Mean contig coverage", "# circular contigs"]
-    return flye_out
+    return flye_out, samples_with_missing_files
 
 
 def gather_sample_files(sample_names, denovo_mode, prokka_mode):
@@ -72,7 +91,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
         "rev_depth": ["rev", "rev.regions.bed.gz"],
         "variants": ["variants", "variants.stats"],
         "prokka": ["prokka", "prokka.gff"],
-        "resfinder": ["resfinder", "resfinder_results.txt"]
+        "resfinder": ["resfinder", "resfinder_results.txt"],
     }
     for sample_name in sorted(sample_names):
         files = {}
@@ -92,7 +111,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                         f"Required file '{file_type}' missing "
                         f"for sample '{sample_name}'."
                     )
-            elif (file_type == "resfinder"):
+            elif file_type == "resfinder":
                 if not os.path.exists(file):
                     file = None
             else:
@@ -242,15 +261,15 @@ def get_indel_length_histogram(indel_lengths):
     return p
 
 
-def main(args):
-    """Run the entry point."""
-    logger = get_named_logger("Report")
+def create_report(args):
+    """Create and populate Labs report."""
     report = labs.LabsReport(
         "Bacterial Genomes Summary Report",
         "wf-bacterial-genomes",
         args.params,
         args.versions,
     )
+    samples = sorted(args.sample_ids)
 
     if args.stats:
         with report.add_section("Read summary", "Read summary"):
@@ -261,30 +280,51 @@ def main(args):
             "Analysis was completed using an alignment with the provided "
             "reference, and Medaka was used for variant calling."
         )
-        stats_table = None
     else:
         html_tags.p(
             "As no reference was provided the reads were assembled"
             " and corrected using Flye and Medaka."
         )
-        stats_table = get_flye_stats(
-            sample_names=args.sample_ids,
+        stats_table, samples_flye_failed = get_flye_stats(
+            sample_names=samples,
             flye_dir="flye_stats",
             flye_suffix="_flye_stats.tsv",
         )
-        stats_table.index.name = "Sample"
+        samples = [
+            sample for sample in samples if sample not in samples_flye_failed
+        ]
         with report.add_section("Assembly summary statistics", "Assembly"):
             html_tags.p(
                 "This section displays the read and assembly QC"
                 " statistics for all the samples in the run."
             )
             if stats_table is not None:
+                stats_table.index.name = "Sample"
+                if samples_flye_failed:
+                    html_raw(
+                        f"""
+                        <b>Info:</b> Due to too low coverage, Flye failed to produce an
+                        assembly for the following samples:
+                        <b>{", ".join(samples_flye_failed)}</b>.<br>
+
+                        They will be omitted from the rest of the report.
+                        """
+                    )
                 DataTable.from_pandas(stats_table)
+            else:
+                # not a single sample produced a valid assembly
+                html_raw(
+                    """
+                    <b>Warning:</b> Due to too low coverage, Flye failed to produce an
+                    assembly for any of the samples. There are therefore no more results
+                    to report.
+                    """
+                )
+                return report
 
     # Gather stats files for each sample (will be used by the various report sections
     # below)
-    sample_files = gather_sample_files(
-        args.sample_ids, args.denovo, args.prokka)
+    sample_files = gather_sample_files(samples, args.denovo, args.prokka)
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(
@@ -309,10 +349,10 @@ def main(args):
         with report.add_section("Variant calling", "Variants"):
             html_raw(
                 """
-            The following tables and figures are derived from the output of <a
-            href="https://samtools.github.io/bcftools/bcftools.html#stats">bcftools
-            stats</a>.
-            """
+                The following tables and figures are derived from the output of <a
+                href="https://samtools.github.io/bcftools/bcftools.html#stats">bcftools
+                stats</a>.
+                """
             )
             # we need a list of variant files and a corresponding list of sample names
             # for `parse_bcftools_stats_multi()` --> extract from the `sample_files`
@@ -354,7 +394,7 @@ def main(args):
             # each sample
             tabs = Tabs()
             with tabs.add_dropdown_menu():
-                for sample in sorted(args.sample_ids):
+                for sample in samples:
                     with tabs.add_dropdown_tab(sample):
                         # get substitution heatmap first
                         subst_df = bcf_stats["ST"].query("sample == @sample")
@@ -411,11 +451,11 @@ def main(args):
         with report.add_section("Antimicrobial resistance", "AMR"):
             html_raw(
                 """
-                The contigs were analysed for antimicrobial resistance using
-                <a href="https://bitbucket.org/genomicepidemiology/resfinder/src/master/">
-                ResFinder</a>. You can use the
-                dropdown menu to select different samples.
-                """ # noqa
+                The contigs were analysed for antimicrobial resistance using <a
+                href="https://bitbucket.org/genomicepidemiology/resfinder/src/master/">
+                ResFinder</a>. You can use the dropdown menu to select different
+                samples.
+                """  # noqa
             )
             # add a table with the `resfinder` features for each sample
             tabs = Tabs()
@@ -423,19 +463,27 @@ def main(args):
                 for name, files in sample_files.items():
                     with tabs.add_dropdown_tab(name):
                         if files["resfinder"] is None:
-                            html_raw("""
-                <b>
-                Resfinder did not work for this sample.
-                Please check that species and reference parameters are relevant
-                to the sample.</b>
-                """)
-                        else:
-
-                            resfinder_df = pd.read_csv(
-                                files["resfinder"], sep='\t').rename(
-                                columns=lambda col: col[0].upper() + col[1:]
+                            html_raw(
+                                """
+                                <b>
+                                Resfinder did not work for this sample.
+                                Check species and reference parameters are relevant
+                                to the sample.</b>
+                                """
                             )
+                        else:
+                            resfinder_df = pd.read_csv(
+                                files["resfinder"], sep="\t"
+                            ).rename(columns=lambda col: col[0].upper() + col[1:])
                             DataTable.from_pandas(resfinder_df, use_index=False)
+    return report
+
+
+def main(args):
+    """Run the entry point."""
+    logger = get_named_logger("Report")
+    report = create_report(args)
+
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
 
@@ -453,8 +501,9 @@ def argparser():
         "--prokka", action="store_true", help="Prokka analysis was performed."
     )
     parser.add_argument(
-        "--resfinder", action="store_true",
-        help="Resfinder antimicrobial resistance analysis was performed."
+        "--resfinder",
+        action="store_true",
+        help="Resfinder antimicrobial resistance analysis was performed.",
     )
     parser.add_argument(
         "--versions",

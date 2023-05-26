@@ -7,7 +7,7 @@ include { fastq_ingress } from './lib/fastqingress'
 include { run_amr } from './modules/local/amr'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
-
+FLYE_MIN_COVERAGE_THRESHOLD = 5
 
 process readStats {
     label params.process_label
@@ -50,13 +50,40 @@ process deNovo {
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
-        tuple val(meta), path("${meta.alias}.draft_assembly.fasta.gz"), path("${meta.alias}_flye_stats.tsv")
+        tuple val(meta),
+            path("${meta.alias}.draft_assembly.fasta.gz"),
+            path("${meta.alias}_flye_stats.tsv"),
+            optional: true, emit: asm
+        tuple val(meta), env(LOW_COV_FAIL), emit: failed
     script:
+    // flye may fail due to low coverage; in this case we don't want to cause the whole
+    // workflow to crash --> exit with `0` and don't emit output files
     """
-    flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}"
-    mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
-    mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
-    bgzip "${meta.alias}.draft_assembly.fasta"
+    LOW_COV_FAIL=0
+    FLYE_EXIT_CODE=0
+    flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
+    FLYE_EXIT_CODE=\$?
+
+    if [[ \$FLYE_EXIT_CODE -eq 0 ]]; then
+        mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
+        mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
+        bgzip "${meta.alias}.draft_assembly.fasta"
+    else
+        # flye failed --> check the log to see if low coverage caused the failure
+        edge_cov=\$(grep -oP 'Mean edge coverage: \\K\\d+' output/flye.log)
+        ovlp_cov=\$(grep -oP 'Overlap-based coverage: \\K\\d+' output/flye.log)
+        if [[
+            \$edge_cov -lt $FLYE_MIN_COVERAGE_THRESHOLD ||
+            \$ovlp_cov -lt $FLYE_MIN_COVERAGE_THRESHOLD
+        ]]; then
+            echo -n "Caught Flye failure due to low coverage (either mean edge cov. or "
+            echo "overlap-based cov. were below $FLYE_MIN_COVERAGE_THRESHOLD)".
+            LOW_COV_FAIL=1
+        else
+            # exit a subshell with error so that the process fails
+            ( exit \$FLYE_EXIT_CODE )
+        fi
+    fi
     """
 }
 
@@ -285,7 +312,8 @@ process makeReport {
     """
     workflow-glue report \
     $stats_args \
-    $prokka $denovo \
+    $prokka \
+    $denovo \
     $resfinder \
     --versions versions \
     --params params.json \
@@ -387,14 +415,22 @@ workflow calling_pipeline {
         }
         if (!params.reference_based_assembly){
             log.info("Running Denovo assembly.")
-            denovo_assem = deNovo(input_reads)
-            named_refs = denovo_assem.map { it -> [it[0], it[1]] }
+            deNovo(input_reads)
+            // some samples might have failed flye due to low coverage
+            deNovo.out.failed.map { meta, failed ->
+                if (failed == "1") {
+                    log.warn "Flye failed for sample '$meta.alias' due to low coverage."
+                }
+            }
+            named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
             read_ref_groups = input_reads.join(named_refs)
+            flye_info = deNovo.out.asm.map { meta, asm, stats -> stats }
         } else {
             log.info("Reference based assembly selected.")
             references = channel.fromPath(params.reference)
             read_ref_groups = input_reads.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
+            flye_info = Channel.empty()
         }
         alignments = alignReads(read_ref_groups)
         read_stats = readStats(alignments)
@@ -428,12 +464,6 @@ workflow calling_pipeline {
         hdfs = medakaNetwork(regions_model)
         hdfs_grouped = alignments.combine(hdfs.groupTuple(), by: 0).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
-        
-        if (!params.reference_based_assembly){
-            flye_info = denovo_assem.map { it -> it[2] }
-        }else{
-            flye_info = Channel.empty()
-        }
 
         // medaka variants
         if (params.reference_based_assembly){
@@ -461,13 +491,12 @@ workflow calling_pipeline {
                 params.species,
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
-            amr = run_amr.amr 
+            amr = run_amr.amr
             amr_results = run_amr.report_table
         } else {
             amr = Channel.empty()
             amr_results = Channel.empty()
         }
-
 
         prokka_version = prokkaVersion()
         medaka_version = medakaVersion(prokka_version)
@@ -475,17 +504,17 @@ workflow calling_pipeline {
         workflow_params = getParams()
 
         report = makeReport(
-            software_versions.collect(),
+            software_versions,
             workflow_params,
-            variants.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            variants.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
-            prokka.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
+            prokka.collect().ifEmpty(OPTIONAL_FILE),
             per_read_stats,
-            depth_stats.fwd.collect(),
-            depth_stats.rev.collect(),
-            depth_stats.all.collect(),
-            flye_info.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")),
-            amr_results.collect().ifEmpty(file("${projectDir}/data/OPTIONAL_FILE")))
+            depth_stats.fwd.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.rev.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.all.collect().ifEmpty(OPTIONAL_FILE),
+            flye_info.collect().ifEmpty(OPTIONAL_FILE),
+            amr_results.collect().ifEmpty(OPTIONAL_FILE))
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
@@ -497,7 +526,8 @@ workflow calling_pipeline {
             prokka,
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
-            workflow_params
+            workflow_params,
+            software_versions,
         )
 
     emit:
