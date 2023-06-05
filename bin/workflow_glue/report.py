@@ -16,6 +16,7 @@ from ezcharts.plots import AxisLabelFormatter, util as ezc_util
 from .parsers import (  # noqa: ABS101
     parse_bcftools_stats_multi,
     parse_prokka_gff,
+    parse_mlst
 )  # noqa: I100,I202
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
@@ -92,6 +93,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
         "variants": ["variants", "variants.stats"],
         "prokka": ["prokka", "prokka.gff"],
         "resfinder": ["resfinder", "resfinder_results.txt"],
+        "mlst": ["mlst", "mlst.json"],
     }
     for sample_name in sorted(sample_names):
         files = {}
@@ -112,6 +114,9 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                         f"for sample '{sample_name}'."
                     )
             elif file_type == "resfinder":
+                if not os.path.exists(file):
+                    file = None
+            elif (file_type == "mlst"):
                 if not os.path.exists(file):
                     file = None
             else:
@@ -447,7 +452,7 @@ def create_report(args):
                             columns=lambda col: col[0].upper() + col[1:]
                         )
                         DataTable.from_pandas(prokka_df, use_index=False)
-    if args.resfinder:
+    if args.isolates:
         with report.add_section("Antimicrobial resistance", "AMR"):
             html_raw(
                 """
@@ -476,6 +481,36 @@ def create_report(args):
                                 files["resfinder"], sep="\t"
                             ).rename(columns=lambda col: col[0].upper() + col[1:])
                             DataTable.from_pandas(resfinder_df, use_index=False)
+        with report.add_section("Multilocus sequence typing", "MLST"):
+            html_raw(
+                """
+                Multilocus sequencing typing was performed on contigs using
+                <a href="https://github.com/tseemann/mlst">
+                MLST</a>. Typing scheme information is available at
+                <a href="https://pubmlst.org/"> PubMLST</a>. You can use the
+                dropdown menu to select different samples.
+                """
+            )
+            # Add a table with the `mlst` features for each sample
+            tabs = Tabs()
+            with tabs.add_dropdown_menu():
+                for name, files in sample_files.items():
+                    with tabs.add_dropdown_tab(name):
+                        # use custom func to capitalize the column names because
+                        # `str.capitalize()` also changes all-upper-case strings
+                        # (e.g. "ID" to "Id")
+                        mlst_df = parse_mlst(files["mlst"])
+                        if mlst_df is None:
+                            html_raw("""
+                <b>
+                MLST was unable to identify scheme for this sample.
+                Please check coverage of sample.</b>
+                """)
+                        else:
+                            mlst_df = mlst_df.rename(
+                                columns=lambda col: col[0].upper() + col[1:]
+                            )
+                            DataTable.from_pandas(mlst_df, use_index=False)
     return report
 
 
@@ -501,7 +536,7 @@ def argparser():
         "--prokka", action="store_true", help="Prokka analysis was performed."
     )
     parser.add_argument(
-        "--resfinder",
+        "--isolates",
         action="store_true",
         help="Resfinder antimicrobial resistance analysis was performed.",
     )

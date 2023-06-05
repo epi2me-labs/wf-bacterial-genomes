@@ -144,6 +144,11 @@
                     "type": "string",
                     "default": "0.6",
                     "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
+                },
+                "mlst_version": {
+                    "type": "string",
+                    "default": "2.23.0",
+                    "description": "MLST version to use."
                 }
             }
         },
