@@ -1,3 +1,16 @@
+process mlstSearch {
+    label "mlst"
+    cpus 1
+    input:
+        tuple val(meta), path("input_genome.fasta.gz")
+    output:
+        path("${meta.alias}.mlst.json")
+    script:
+    """
+    gunzip -c input_genome.fasta.gz > input_genome.fasta
+    mlst input_genome.fasta --label ${meta.alias} --json ${meta.alias}.mlst.json
+    """
+}
 
 
 process resfinderAcquiredOnly {
@@ -77,7 +90,7 @@ process processResfinderFull {
 
 
 
-workflow run_amr {
+workflow run_isolates {
    take:
       consensus
       species
@@ -88,6 +101,7 @@ workflow run_amr {
         // This can be avoided by using the --ignore_missing_species flag
         // But this is not enabled as otherwise the results may give the wrong impression
         // e.g that point mutations were searched for when they were not
+        mlst_results = mlstSearch(consensus)
         if (species == "other"){
             amr_results = resfinderAcquiredOnly(consensus)
             processed = processResfinderAquired(amr_results)
@@ -97,6 +111,7 @@ workflow run_amr {
             processed = processResfinderFull(amr_results)
         }
    emit:
+      mlst = mlst_results
       amr = amr_results
       report_table = processed
 }

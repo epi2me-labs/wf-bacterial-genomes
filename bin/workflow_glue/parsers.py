@@ -115,3 +115,20 @@ def parse_bcftools_stats_multi(fnames, sample_names=None):
     for k, t in all_tables.items():
         all_tables[k] = pd.concat(t)
     return dict(all_tables)  # don't want defaultdict
+
+
+def parse_mlst(filename):
+    """Parse mlst json to pandas df."""
+    columns = ["id", "scheme", "sequence_type", "alleles"]
+    df = pd.read_json(filename)
+    df = df[columns]
+    # Catches failed MLST run (i.e df["alleles"] is NaN)
+    # Allele information is nested in second layer of json so needs to be extracted and
+    # Added into dataframe
+    if df["alleles"].isnull().values.any():
+        return None
+    else:
+        alleles = pd.DataFrame(df["alleles"].tolist()).sort_index(axis=1)
+        df = pd.concat([df.drop("alleles", axis=1), alleles], axis=1)
+        df.columns = df.columns.str.replace("_", " ")
+    return df

@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 import groovy.json.JsonBuilder
 
 include { fastq_ingress } from './lib/fastqingress'
-include { run_amr } from './modules/local/amr'
+include { run_isolates } from './modules/local/isolates'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 FLYE_MIN_COVERAGE_THRESHOLD = 5
@@ -232,7 +232,7 @@ process prokkaVersion {
     output:
         path "prokka_version.txt"
     """
-    prokka --version | sed 's/ /,/' >> "prokka_version.txt"
+    prokka --version |& sed 's/ /,/' >> "prokka_version.txt"
     """
 }
 
@@ -248,6 +248,19 @@ process medakaVersion {
     medaka --version | sed 's/ /,/' >> "medaka_version.txt"
     """
 }
+
+process mlstVersion {
+    label "mlst"
+    input:
+        path "input_version.txt"
+    output:
+        path "mlst_version.txt"
+    """
+    cat "input_version.txt" >> "mlst_version.txt"
+    mlst --version | sed 's/ /,/' >> "mlst_version.txt"
+    """
+}
+
 
 
 process getVersions {
@@ -298,13 +311,14 @@ process makeReport {
         path "total_depth/*"
         path "flye_stats/*"
         path "resfinder/*"
+        path "mlst/*"
     output:
         path "wf-bacterial-genomes-*.html"
     script:
         report_name = "wf-bacterial-genomes-report.html"
         denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
-        resfinder = params.isolates as Boolean ? "--resfinder" : ""
+        isolates = params.isolates as Boolean ? "--isolates" : ""
         samples = sample_ids.join(" ")
         String stats_args = \
             (per_read_stats.name == OPTIONAL_FILE.name) ? "" : "--stats $per_read_stats"
@@ -314,7 +328,7 @@ process makeReport {
     $stats_args \
     $prokka \
     $denovo \
-    $resfinder \
+    $isolates \
     --versions versions \
     --params params.json \
     --output $report_name \
@@ -486,21 +500,24 @@ workflow calling_pipeline {
 
         // amr calling
         if (params.isolates) {
-            run_amr = run_amr(
+            run_isolates = run_isolates(
                 consensus,
                 params.species,
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
-            amr = run_amr.amr
-            amr_results = run_amr.report_table
+            mlst = run_isolates.mlst
+            amr = run_isolates.amr
+            amr_results = run_isolates.report_table
         } else {
             amr = Channel.empty()
             amr_results = Channel.empty()
+            mlst = Channel.empty()
         }
 
         prokka_version = prokkaVersion()
         medaka_version = medakaVersion(prokka_version)
-        software_versions = getVersions(medaka_version)
+        mlst_version = mlstVersion(medaka_version)
+        software_versions = getVersions(mlst_version)
         workflow_params = getParams()
 
         report = makeReport(
@@ -514,7 +531,8 @@ workflow calling_pipeline {
             depth_stats.rev.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.all.collect().ifEmpty(OPTIONAL_FILE),
             flye_info.collect().ifEmpty(OPTIONAL_FILE),
-            amr_results.collect().ifEmpty(OPTIONAL_FILE))
+            amr_results.collect().ifEmpty(OPTIONAL_FILE),
+            mlst.collect().ifEmpty(OPTIONAL_FILE))
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
@@ -526,6 +544,7 @@ workflow calling_pipeline {
             prokka,
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
+            mlst,
             workflow_params,
             software_versions,
         )
