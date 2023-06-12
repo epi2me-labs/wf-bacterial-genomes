@@ -6,9 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 ### Added
-- MLST core gene analysis added to `--isolates` parameter
+- MLST core gene analysis added to `--isolates` parameter.
 ### Changed
 - In case `flye` fails due to low coverage, the workflow will continue and this will be indicated in the report.
+- Bumped minimum required Nextflow version to 22.10.8
 - Enum choices are enumerated in the `--help` output
 - Enum choices are enumerated as part of the error message when a user has selected an invalid choice
 ### Fixed
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--isolates` parameter that will run the ResFinder tool on the final assembly to output antimicrobial resistance genes.
 - Configuration for running demo data in AWS
+
 ### Changed
 - Report is now created with `ezcharts`.
 
@@ -138,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Variant call summary produced using aplanat report component.
 
 ## [v0.0.1]
-- Initial release
+* Initial release
 
 ### Added
 - Basic running of medaka variant calling and report.
