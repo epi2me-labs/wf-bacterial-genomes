@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MLST core gene analysis added to `--isolates` parameter
 ### Changed
 - In case `flye` fails due to low coverage, the workflow will continue and this will be indicated in the report.
+- Enum choices are enumerated in the `--help` output
+- Enum choices are enumerated as part of the error message when a user has selected an invalid choice
+### Fixed
+- Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
 
 ## [v0.2.14]
 ### Added
