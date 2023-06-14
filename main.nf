@@ -498,16 +498,16 @@ workflow calling_pipeline {
             prokka = Channel.empty()
         }
 
-        // amr calling
+        // amr and mlst calling
         if (params.isolates) {
             run_isolates = run_isolates(
                 consensus,
-                params.species,
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
-            mlst = run_isolates.mlst
-            amr = run_isolates.amr
+            mlst = run_isolates.mlst.map{ it -> it[1] }
+            amr = run_isolates.amr.map{meta, res, species -> [meta, res]}
             amr_results = run_isolates.report_table
+            
         } else {
             amr = Channel.empty()
             amr_results = Channel.empty()
@@ -531,8 +531,9 @@ workflow calling_pipeline {
             depth_stats.rev.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.all.collect().ifEmpty(OPTIONAL_FILE),
             flye_info.collect().ifEmpty(OPTIONAL_FILE),
-            amr_results.collect().ifEmpty(OPTIONAL_FILE),
+            amr_results.map{meta, res -> res}.collect().ifEmpty(OPTIONAL_FILE),
             mlst.collect().ifEmpty(OPTIONAL_FILE))
+
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }

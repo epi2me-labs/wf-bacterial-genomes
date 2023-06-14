@@ -4,7 +4,7 @@ process mlstSearch {
     input:
         tuple val(meta), path("input_genome.fasta.gz")
     output:
-        path("${meta.alias}.mlst.json")
+        tuple val(meta), path("${meta.alias}.mlst.json")
     script:
     """
     gunzip -c input_genome.fasta.gz > input_genome.fasta
@@ -12,49 +12,30 @@ process mlstSearch {
     """
 }
 
-
-process resfinderAcquiredOnly {
-    label "amr"
-    errorStrategy 'ignore'
-    input:
-        tuple val(meta), path("input_genome.fasta.gz")
-    output:
-        tuple val(meta), path("${meta.alias}_resfinder_results"), optional: true
-    script:
-    """
-    gunzip -c input_genome.fasta.gz > input_genome.fasta
-    python -m resfinder --acquired -ifa input_genome.fasta --outputPath ${meta.alias}_resfinder_results || exit 0
-    """
-}
-
-
-process processResfinderAquired {
+process getPointfinderSpecies {
     label "wfbacterialgenomes"
+    cpus 1
     input:
-        tuple val(meta), path("${meta.alias}_resfinder_results")
+        tuple val(meta), path("${meta.alias}.mlst.json")
     output:
-        path("${meta.alias}.resfinder_results.txt")
-    script:
-    """
-    workflow-glue process_resfinder \
-        --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
-        --output ${meta.alias}.resfinder_results.txt
-    """
+        tuple val(meta), stdout
+    shell:
+    '''
+    pf_species=$(workflow-glue pointfinder_species --mlst_json '!{meta.alias}.mlst.json')
+    echo $pf_species
+    '''
 }
 
-
-process resfinderFull {
+process resfinder {
     label "amr"
     errorStrategy 'ignore'
     input:
-        tuple val(meta), path("input_genome.fasta.gz")
-        val species
+        tuple val(meta), path("input_genome.fasta.gz"), val(species)
         val resfinder_threshold
         val resfinder_coverage
     output:
-        tuple val(meta), path("${meta.alias}_resfinder_results")
-    script: 
-        String species_input = species.replace("_", " ");
+        tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
+    script:
     """
     gunzip -c -f input_genome.fasta.gz > input_genome.fasta
 
@@ -64,54 +45,56 @@ process resfinderFull {
         -u \
         -t ${resfinder_threshold} \
         --acquired \
-        -s "${species_input}" \
+        -s "${species}" \
         --point \
         -ifa input_genome.fasta \
+        --nanopore \
         --disinfectant || exit 0
     """
 }
 
 
-process processResfinderFull {
+process processResfinder {
+    // Disinfection not processed yet (CW-2106)
     label "wfbacterialgenomes"
     input:
-        tuple val(meta), path("${meta.alias}_resfinder_results")
+        tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
     output:
-        path("${meta.alias}.resfinder_results.txt")
+        tuple val(meta), path("${meta.alias}.resfinder_results.txt")
     script:
-    """
-    workflow-glue process_resfinder \
-        --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
-        --pointfinder_file ${meta.alias}_resfinder_results/PointFinder_results.txt \
-        --output ${meta.alias}.resfinder_results.txt \
-        --database_location ${meta.alias}_resfinder_results/pointfinder_blast/tmp/
-    """
+    if (species == "other")
+        """
+        workflow-glue process_resfinder \
+            --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
+            --output ${meta.alias}.resfinder_results.txt
+        """
+    else
+        """
+        workflow-glue process_resfinder \
+            --resfinder_file ${meta.alias}_resfinder_results/ResFinder_results_tab.txt \
+            --pointfinder_file ${meta.alias}_resfinder_results/PointFinder_results.txt \
+            --output ${meta.alias}.resfinder_results.txt \
+            --database_location ${meta.alias}_resfinder_results/pointfinder_blast/tmp/
+        """
 }
-
-
 
 workflow run_isolates {
    take:
       consensus
-      species
       resfinder_threshold
       resfinder_coverage
    main:
-        // If a species does not match the database, the resfinder_full process will fail
-        // This can be avoided by using the --ignore_missing_species flag
-        // But this is not enabled as otherwise the results may give the wrong impression
-        // e.g that point mutations were searched for when they were not
         mlst_results = mlstSearch(consensus)
-        if (species == "other"){
-            amr_results = resfinderAcquiredOnly(consensus)
-            processed = processResfinderAquired(amr_results)
-        } else {
-             // if there is a species for the sample then do full amr calling
-            amr_results = resfinderFull(consensus, species, resfinder_threshold, resfinder_coverage)
-            processed = processResfinderFull(amr_results)
-        }
+        pointfinder_species = getPointfinderSpecies(mlst_results).map{ meta, species -> [meta, species.trim()] }
+        // Added with tuple meta to ensure species tied to correct sample
+        resfinder_input = consensus.join(pointfinder_species)
+        amr_results = resfinder(resfinder_input, resfinder_threshold, resfinder_coverage)
+        // Breaks if I pass amr_results as single tuple with species attached
+        // ERROR ~ Invalid method invocation `call` with arguments (LOOK INTO)
+        // processed = processResfinder(amr_results, pointfinder_species.map{it -> it[1]})
+        processed = processResfinder(amr_results)
    emit:
-      mlst = mlst_results
       amr = amr_results
       report_table = processed
+      mlst = mlst_results
 }

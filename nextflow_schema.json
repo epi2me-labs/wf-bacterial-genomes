@@ -103,26 +103,6 @@
             "fa_icon": "fas fa-arrow-left",
             "description": "Parameters relating to antimicrobial resistance analysis with ResFinder.",
             "properties": {
-                "species": {
-                    "type": "string",
-                    "default": "other",
-                    "description": "Species for antimicrobial resistance (AMR) search using ResFinder which is required for variant-based results.",
-                    "help_text": "If your species is not in the list, please select 'other' and only acquired AMR will be output.",
-                    "enum": [
-                        "campylobacter",
-                        "enterococcus_faecium",
-                        "neisseria_gonorrhoeae",
-                        "salmonella",
-                        "escherichia_coli",
-                        "klebsiella",
-                        "plasmodium_falciparum",
-                        "staphylococcus_aureus",
-                        "enterococcus_faecalis",
-                        "helicobacter_pylori",
-                        "mycobacterium_tuberculosis",
-                        "other"
-                    ]
-                },
                 "isolates": {
                     "type": "boolean",
                     "default": false,
