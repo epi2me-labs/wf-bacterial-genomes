@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-"""Process resfinder results for IGV browser."""
+"""Process resfinder results."""
 
 import os
 import re
@@ -10,13 +9,13 @@ import pandas as pd
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
-def process_resfinder(resfinder_data, output_file):
+def process_resfinder(resfinder_data, amr_type="resfinder"):
     """Select right columns and split loc column."""
     if len(resfinder_data) == 0:
         resfinder_data = pd.DataFrame(columns=[
-            'Contig', 'Resistance gene', 'Start', 'End',
-            'Phenotype', 'Identity',
-            'Coverage', 'Accession no.', 'Type'])
+            'Contig', 'Resistance gene', 'Start', 'End', 'Phenotype',
+            'Identity/Nucleotide',
+            'Coverage/AA', 'Accession no./PMID', 'Source'])
         return resfinder_data
     loc_split = resfinder_data['Position in contig'].str.split(
         "\\.\\.", n=1, expand=True)
@@ -25,14 +24,12 @@ def process_resfinder(resfinder_data, output_file):
     resfinder_data = resfinder_data.loc[:, (
         'Contig', 'Resistance gene', 'Start', 'End', 'Phenotype', 'Identity',
         'Coverage', 'Accession no.')]
-    resfinder_data.set_index('Resistance gene', inplace=True)
-    resfinder_data = resfinder_data.assign(Type='resfinder')
+    resfinder_data = resfinder_data.assign(Type=amr_type)
     out_columns = [
-        'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
+        'Contig', 'Resistance gene', 'Start', 'End', 'Phenotype',
+        'Identity/Nucleotide',
         'Coverage/AA', 'Accession no./PMID', 'Source']
-    resfinder_data.set_axis(out_columns, axis=1, copy=False)
-
-    resfinder_data.to_csv(output_file, sep="\t", index=False)
+    resfinder_data = resfinder_data.set_axis(out_columns, axis=1, copy=False)
     return resfinder_data
 
 
@@ -70,11 +67,9 @@ def extract_point_bp(subject, mutation):
     # subject = "pncA-promoter-size-107bp"
     # mutation = "p.H57D"
     mutation_bp = int(re.search(r'\d+', mutation).group())*3
-
     if ("promoter" in subject):
         bp_re = re.compile("[0-9]*bp")
         prom_split = subject.split("-")
-
         prom_size = int([x for x in prom_split if bp_re.match(
             x) is not None][0].replace("bp", ""))
         # The noted mutation is from the start of the CDS, if a promoter is
@@ -85,58 +80,75 @@ def extract_point_bp(subject, mutation):
         return (mutation_bp)
 
 
+# Maybe add a test for this?
+def convert_pointfinder_row(database_location, row):
+    """Convert point finder row."""
+    # construct path to xml file
+    xml_path = os.path.join(
+        database_location, "out_"+row['Sequence'] + ".xml")
+    pointfinder_blast_data = read_pointfinder_xml(xml_path)
+    pointfinder_blast_data['Subject'] = row['Sequence']
+    pointfinder_blast_data['Mutation'] = row['Mutation']
+    # TODO: This works for mutations in CDS, but not sure how it will work
+    # with mutations in promoter regions
+    bp_position = extract_point_bp(
+        pointfinder_blast_data.loc[0, 'Subject'],
+        pointfinder_blast_data.loc[0, 'Mutation'])
+    pointfinder_blast_data['Local_loc_bp'] = bp_position
+    start_loc = pointfinder_blast_data.loc[0, 'query_start']
+    end_loc = pointfinder_blast_data.loc[0, 'query_end']
+    # Getting round the fact that the res-gene may match in the reverse
+    # orientation, and therefore the start and end positions are reversed
+    if (start_loc > end_loc):
+        pointfinder_blast_data['Global_loc_bp'] = start_loc - bp_position
+        # End of codon
+        pointfinder_blast_data['Global_loc_bp_end'] = start_loc - \
+            bp_position + 2
+    else:
+        pointfinder_blast_data['Global_loc_bp'] = end_loc + bp_position
+        # TODO: should this be a + or -
+        pointfinder_blast_data['Global_loc_bp_end'] = start_loc - \
+            bp_position + 2
+    return pointfinder_blast_data
+
+
 def process_pointfinder(pointfinder_data, output_file, database_location):
     """Select right columns and split loc column."""
     # TODO: This is all messy and needs refactoring
+    if len(pointfinder_data) == 0:
+        pointfinder_data = pd.DataFrame(columns=[
+            'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
+            'Coverage/AA', 'Accession no./PMID', 'Source'])
+        return pointfinder_data
+    try:
+        gene_name = pointfinder_data['Mutation'].str.split('-').str[0]
+    except IndexError:
+        gene_name = pointfinder_data['Mutation']
+    pointfinder_data["Resistance gene"] = gene_name
     mutation_names = pointfinder_data['Mutation']
     loc_split = pointfinder_data['Mutation'].str.split(
         " ", n=1, expand=True)
     pointfinder_data = pointfinder_data.assign(
         Sequence=loc_split[0], Mutation=loc_split[1])
-    pointfinder_data.to_csv(output_file, sep="\t", index=False)
     pointfinder_data['Query_loc'] = 0
     df_list = []
     for key, row in pointfinder_data.iterrows():
-        # construct path to xml file
-        xml_path = os.path.join(
-            database_location, "out_"+row['Sequence'] + ".xml")
-        pointfinder_blast_data = read_pointfinder_xml(xml_path)
-        pointfinder_blast_data['Subject'] = row['Sequence']
-        pointfinder_blast_data['Mutation'] = row['Mutation']
-        # TODO: This works for mutations in CDS, but not sure how it will work
-        # with mutations in promoter regions
-
-        bp_position = extract_point_bp(
-            pointfinder_blast_data.loc[0, 'Subject'],
-            pointfinder_blast_data.loc[0, 'Mutation'])
-        pointfinder_blast_data['Local_loc_bp'] = bp_position
-        start_loc = pointfinder_blast_data.loc[0, 'query_start']
-        end_loc = pointfinder_blast_data.loc[0, 'query_end']
-        # Getting round the fact that the res-gene may match in the reverse
-        # orientation, and therefore the start and end positions are reversed
-        if (start_loc > end_loc):
-            pointfinder_blast_data['Global_loc_bp'] = start_loc - bp_position
-            # End of codon
-            pointfinder_blast_data['Global_loc_bp_end'] = start_loc - \
-                bp_position + 2
-        else:
-            pointfinder_blast_data['Global_loc_bp'] = end_loc + bp_position
-            # TODO: should this be a + or -
-            pointfinder_blast_data['Global_loc_bp_end'] = start_loc - \
-                bp_position + 2
+        pointfinder_blast_data = convert_pointfinder_row(
+            database_location, row)
         df_list.append(pointfinder_blast_data)
 
     concat_df = pd.concat(df_list)
     # split the mutation and get the base position
-
     concat_df_merge = concat_df.merge(pointfinder_data, on='Mutation')
-    concat_df_merge_tidy = concat_df_merge.iloc[:, [4, 8, 9, 12, 10, 11, 13]]
+    concat_df_merge_tidy = concat_df_merge.iloc[
+        :, [4, 8, 9, 12, 10, 11, 13, 14]]
     concat_df_merge_tidy.index = mutation_names
     concat_df_merge_tidy = concat_df_merge_tidy.assign(Type='pointfinder')
     out_columns = [
         'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
-        'Coverage/AA', 'Accession no./PMID', 'Source']
-    concat_df_merge_tidy.set_axis(out_columns, axis=1, copy=False)
+        'Coverage/AA', 'Accession no./PMID', 'Resistance gene', 'Source']
+    concat_df_merge_tidy = concat_df_merge_tidy.set_axis(
+        out_columns, axis=1, copy=False)
     return concat_df_merge_tidy
 
 
@@ -144,43 +156,22 @@ def main(args):
     """Run entry point."""
     logger = get_named_logger("process_amr")
     resfinder_data = pd.read_csv(args.resfinder_file, sep="\t")
+    resfinder_results = process_resfinder(resfinder_data)
     if (args.pointfinder_file != "NOT_RUN"):
         pointfinder_data = pd.read_csv(args.pointfinder_file, sep="\t")
-    else:
-        pointfinder_data = pd.DataFrame()
-
-    # TODO: this is all messy and needs refactoring
-    if (not resfinder_data.empty and not pointfinder_data.empty):
-        resfinder_results = process_resfinder(
-            resfinder_data, args.output)
         pointfinder_results = process_pointfinder(
             pointfinder_data, args.output, args.database_location)
-        pointfinder_results = pointfinder_results.rename(
-            columns={'query': 'Contig', 'Global_loc_bp': 'Start',
-                     'Global_loc_bp_end': 'End', 'Resistance': 'Phenotype',
-                     'PMID': 'Accession no.'})
-        # Merged column names
-        amr_results = pd.concat([resfinder_results, pointfinder_results])
-        amr_results = amr_results.rename(
-            columns={
-                'Phenotype': 'Phenotype/Resistance',
-                'Accession no.': 'Accession no./PMID'})
-        amr_results.to_csv(args.output, sep="\t", index=False)
-    elif (not resfinder_data.empty and pointfinder_data.empty):
-        amr_results = process_resfinder(
-            resfinder_data, args.output)
-    elif (resfinder_data.empty and not pointfinder_data.empty):
-        amr_results = process_pointfinder(
-            pointfinder_data, args.output, args.database_location)
-    # pointfinder and resfinder results were empty
     else:
-        out_columns = [
-            'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
-            'Coverage/AA', 'Accession no./PMID', 'Source']
-        amr_results = pd.DataFrame(columns=out_columns)
-
+        pointfinder_results = pd.DataFrame()
+    if (args.disinf_file != "NOT_RUN"):
+        disinf_data = pd.read_csv(args.disinf_file, sep="\t")
+        disinf_results = process_resfinder(
+            disinf_data, amr_type="Disinfectant")
+    else:
+        disinf_results = pd.DataFrame()
+    amr_results = pd.concat([
+        resfinder_results, pointfinder_results, disinf_results])
     amr_results.to_csv(args.output, sep="\t", index=False, na_rep='N/A')
-
     logger.info(f"Written amr-results to {args.output}.")
 
 
@@ -190,6 +181,9 @@ def argparser():
     parser.add_argument(
         "--resfinder_file",
         help="Resfinder tab delimited results file.")
+    parser.add_argument(
+        "--disinf_file", default="NOT_RUN",
+        help="Disinfectant resistance finder tab delimited results file.")
     parser.add_argument(
         "--pointfinder_file", default="NOT_RUN",
         help="Pointfinder tab delimited results file.")

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `species` parameter removed, valid pointfinder species will be inferred from MSLT results.	
 ### Added
+- Include disinfectant resistance results in the report.
 - MLST core gene analysis added to `--isolates` parameter.
 ### Changed
 - In case `flye` fails due to low coverage, the workflow will continue and this will be indicated in the report.
