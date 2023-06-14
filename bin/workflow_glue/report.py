@@ -518,7 +518,6 @@ def main(args):
     """Run the entry point."""
     logger = get_named_logger("Report")
     report = create_report(args)
-
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
 
@@ -536,9 +535,8 @@ def argparser():
         "--prokka", action="store_true", help="Prokka analysis was performed."
     )
     parser.add_argument(
-        "--isolates",
-        action="store_true",
-        help="Resfinder antimicrobial resistance analysis was performed.",
+        "--isolates", action="store_true",
+        help="Resfinder antimicrobial resistance analysis was performed."
     )
     parser.add_argument(
         "--versions",

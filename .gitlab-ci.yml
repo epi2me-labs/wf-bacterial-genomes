@@ -13,7 +13,7 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr, amr-species, barcode04, mlst]
+            - MATRIX_NAME: [de-novo, amr, barcode04, mlst, mixed-species]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -41,11 +41,6 @@ docker-run:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
                   --fastq test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
-        - if: $MATRIX_NAME == "amr-species"
-          variables:
-              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
-                  --fastq test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --species mycobacterium_tuberculosis"
-              NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
@@ -63,7 +58,11 @@ docker-run:
                   --threads 3 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantConsensus,makeReport,runProkka"
-
+        - if: $MATRIX_NAME == "mixed-species"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+              --fastq test_data/isolates_fastq/ --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
+              NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
     extends: .aux-container
