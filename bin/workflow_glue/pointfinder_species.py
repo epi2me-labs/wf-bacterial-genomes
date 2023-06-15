@@ -21,17 +21,17 @@ def main(args):
         "campylobacter": "campylobacter",
         "campylobacter_nonjejuni_4": "campylobacter",
         "campylobacter_nonjejuni_2": "campylobacter",
-        "efaecium": "enterococcus_faecium",
-        "efaecalis": "enterococcus_faecalis",
-        "neisseria": "neisseria_gonorrhoeae",
+        "efaecium": "enterococcus faecium",
+        "efaecalis": "enterococcus faecalis",
+        "neisseria": "neisseria gonorrhoeae",
         "senterica_achtman_2": "salmonella",
         "ecoli": 'escherichia_coli',
         "klebsiella": "klebsiella",
         "koxytoca": "klebsiella",
         "kaerogenes": "klebsiella",
-        "saureus": "staphylococcus_aureus",
-        "helicobacter": "helicobacter_pylori",
-        "mycobacteria_2": "mycobacterium_tuberculosis",
+        "saureus": "staphylococcus aureus",
+        "helicobacter": "helicobacter pylori",
+        "mycobacteria_2": "mycobacterium tuberculosis",
     }
     with open(args.mlst_json) as f:
         data = json.load(f)

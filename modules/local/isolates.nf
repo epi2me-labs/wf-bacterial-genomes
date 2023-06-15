@@ -41,18 +41,20 @@ process resfinder {
 
     python -m resfinder \
         -o ${meta.alias}_resfinder_results \
+        -j ${meta.alias}_resfinder_results/${meta.alias}_resfinder.json \
         -l ${resfinder_coverage} \
         -u \
         -t ${resfinder_threshold} \
         --acquired \
         -s "${species}" \
+        -s "${species}" \
         --point \
         -ifa input_genome.fasta \
+        --nanopore \
         --nanopore \
         --disinfectant || exit 0
     """
 }
-
 
 process processResfinder {
     // Disinfection not processed yet (CW-2106)
@@ -89,12 +91,10 @@ workflow run_isolates {
         // Added with tuple meta to ensure species tied to correct sample
         resfinder_input = consensus.join(pointfinder_species)
         amr_results = resfinder(resfinder_input, resfinder_threshold, resfinder_coverage)
-        // Breaks if I pass amr_results as single tuple with species attached
-        // ERROR ~ Invalid method invocation `call` with arguments (LOOK INTO)
-        // processed = processResfinder(amr_results, pointfinder_species.map{it -> it[1]})
         processed = processResfinder(amr_results)
    emit:
-      amr = amr_results
+      amr = amr_results.map{meta, amr, species -> [meta, amr]}
       report_table = processed
+      mlst = mlst_results
       mlst = mlst_results
 }

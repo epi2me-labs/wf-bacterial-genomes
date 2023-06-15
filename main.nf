@@ -32,9 +32,9 @@ process coverStats {
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
-        path "*fwd.regions.bed.gz", emit: fwd
-        path "*rev.regions.bed.gz", emit: rev
-        path "*total.regions.bed.gz", emit: all
+        tuple val(meta), path("*fwd.regions.bed.gz"), emit: fwd
+        tuple val(meta), path("*rev.regions.bed.gz"), emit: rev
+        tuple val(meta), path("*total.regions.bed.gz"), emit: all
 
     """
     mosdepth -n --fast-mode --by 200 --flag 16 -t $task.cpus "${meta.alias}.fwd" align.bam
@@ -179,8 +179,8 @@ process medakaVariant {
     input:
         tuple val(meta), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
     output:
-        path "${meta.alias}.medaka.vcf.gz", emit: variants
-        path "${meta.alias}.variants.stats", emit: variant_stats
+        tuple val(meta), path("${meta.alias}.medaka.vcf.gz"), emit: variants
+        tuple val(meta), path("${meta.alias}.variants.stats"), emit: variant_stats
     // note: extension on ref.fasta.gz might not be accurate but shouldn't (?) cause issues.
     //       Also the first step may create an index if not already existing so the alternative
     //       reference.* will break
@@ -215,7 +215,7 @@ process runProkka {
     input:
         tuple val(meta), path("consensus.fasta.gz")
     output:
-        path "*prokka_results/*prokka.gff"
+        tuple val(meta), path("*prokka_results/*prokka.gff")
 
     script:
         def prokka_opts = params.prokka_opts ?: ""
@@ -337,6 +337,38 @@ process makeReport {
 }
 
 
+process makePerSampleReports {
+    label params.process_label
+    cpus 1
+    input:
+        path "versions.txt"
+        path "params.json"
+        tuple val(meta), path("report_files/*")
+    output:
+        path "${meta.alias}-isolate-report.html"
+    script:
+        String alias = meta.alias
+        String barcode = meta.barcode
+        String denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
+        String prokka = params.run_prokka as Boolean ? "--prokka" : ""
+        String isolates = params.isolates as Boolean ? "--isolates" : ""
+    // the script checks for presence / absence of the various files in `report_files`
+    """
+    workflow-glue per_sample_report \
+        $prokka \
+        $denovo \
+        $isolates \
+        --versions versions.txt \
+        --params params.json \
+        --output ${meta.alias}-isolate-report.html \
+        --sample-alias $alias \
+        --sample-barcode $barcode \
+        --wf-session $workflow.sessionId \
+        --wf-version $workflow.manifest.version
+    """
+}
+
+
 // See https://github.com/nextflow-io/nextflow/issues/1636
 // This is the only way to publish files from a workflow whilst
 // decoupling the publish from the process steps.
@@ -438,7 +470,7 @@ workflow calling_pipeline {
             }
             named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
             read_ref_groups = input_reads.join(named_refs)
-            flye_info = deNovo.out.asm.map { meta, asm, stats -> stats }
+            flye_info = deNovo.out.asm.map { meta, asm, stats -> [meta, stats] }
         } else {
             log.info("Reference based assembly selected.")
             references = channel.fromPath(params.reference)
@@ -504,9 +536,10 @@ workflow calling_pipeline {
                 consensus,
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
-            mlst = run_isolates.mlst.map{ it -> it[1] }
-            amr = run_isolates.amr.map{meta, res, species -> [meta, res]}
+            mlst = run_isolates.mlst
+            amr = run_isolates.amr
             amr_results = run_isolates.report_table
+            
             
         } else {
             amr = Channel.empty()
@@ -523,29 +556,60 @@ workflow calling_pipeline {
         report = makeReport(
             software_versions,
             workflow_params,
-            variants.collect().ifEmpty(OPTIONAL_FILE),
+            variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
-            prokka.collect().ifEmpty(OPTIONAL_FILE),
+            prokka.map{ meta, gff -> gff }.collect().ifEmpty(OPTIONAL_FILE),
             per_read_stats,
-            depth_stats.fwd.collect().ifEmpty(OPTIONAL_FILE),
-            depth_stats.rev.collect().ifEmpty(OPTIONAL_FILE),
-            depth_stats.all.collect().ifEmpty(OPTIONAL_FILE),
-            flye_info.collect().ifEmpty(OPTIONAL_FILE),
-            amr_results.map{meta, res -> res}.collect().ifEmpty(OPTIONAL_FILE),
-            mlst.collect().ifEmpty(OPTIONAL_FILE))
+            depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
+            amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
+            mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE))
+
+        if (params.isolates) {
+            report_files_per_sample = reads
+            | map { meta, reads, stats_dir ->
+                [meta, stats_dir.resolve("per-read-stats.tsv")]
+            }
+            | join(vcf_variant, remainder: true)
+            | join(variants, remainder: true)
+            | join(prokka, remainder: true)
+            | join(depth_stats.fwd, remainder: true)
+            | join(depth_stats.rev, remainder: true)
+            | join(depth_stats.all, remainder: true)
+            | join(flye_info, remainder: true)
+            | join(amr, remainder: true)
+            | join(mlst, remainder: true)
+            | map {
+                meta = it[0]
+                files = it[1..-1]
+                // the empty channels will have resulted in occurrences of `null` in
+                // the list produced by the joins --> filter
+                [meta, files.findAll { it }]
+            }
+            perSampleReports = makePerSampleReports(
+                software_versions,
+                workflow_params,
+                report_files_per_sample
+            )
+        } else {
+            perSampleReports = Channel.empty()
+        }
 
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
         | collectFastqIngressResultsInDir
-        all_out = variants.concat(
-            vcf_variant,
+        all_out = variants.map{meta, stats -> stats}.concat(
+            vcf_variant.map{meta, vcf -> vcf},
             consensus.map {meta, assembly -> assembly},
             report,
-            prokka,
+            perSampleReports,
+            prokka.map{meta, prokka -> prokka},
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
-            mlst,
+            mlst.map {meta, mlst -> mlst},
             workflow_params,
             software_versions,
         )
