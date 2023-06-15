@@ -13,7 +13,7 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr, barcode04, mlst, mixed-species]
+            - MATRIX_NAME: [de-novo, amr, barcode04, mlst, mixed-species, reference-iso]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -26,26 +26,26 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
                   --fastq test_data/fastq --threads 3 --chunk_size 100000"
-              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantConsensus"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantConsensus,makePerSampleReports"
         - if: $MATRIX_NAME == "reference-based"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
-              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "check-model"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
                   --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
-              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "amr"
           variables:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
                   --fastq test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
-              NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
+              NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus,makePerSampleReports"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
                   --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2 --sample_sheet test_data/sample_sheet.csv"
-              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka"
+              NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "mlst"
           variables:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
@@ -57,12 +57,16 @@ docker-run:
               NF_WORKFLOW_OPTS: "--fastq test_data/isolates_fastq/barcode04 \
                   --threads 3 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
-                  medakaConsensus,medakaNetwork,medakaVariant,medakaVariantConsensus,makeReport,runProkka"
+                  medakaConsensus,medakaNetwork,medakaVariant,medakaVariantConsensus,makeReport,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "mixed-species"
           variables:
               NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
               --fastq test_data/isolates_fastq/ --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
+        - if: $MATRIX_NAME == "reference-iso"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 --isolates"
+              NF_IGNORE_PROCESSES: "deNovo,runProkka"
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
     extends: .aux-container

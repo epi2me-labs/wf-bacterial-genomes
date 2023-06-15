@@ -74,7 +74,8 @@ def get_flye_stats(sample_names, flye_dir, flye_suffix):
         return flye_stats, samples_with_missing_files
     flye_stats["circ."] = flye_stats["circ."].str.strip()
     flye_cov_mean = (
-        flye_stats[flye_stats["repeat"] == "N"].groupby(level=0)["cov."].mean().round(2)
+        flye_stats[
+            flye_stats["repeat"] == "N"].groupby(level=0)["cov."].mean().round(2)
     )
     # flye_cov_mean = flye_cov_mean.reset_index()
     flye_circular = get_circular_flye_stats(flye_stats)
