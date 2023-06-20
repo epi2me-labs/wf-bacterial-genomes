@@ -4,17 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.3.0]	
+## [unreleased]
+### Changed
+- GitHub issue templates
+
+## [v0.3.0]	]
 ### Added
 - Isolate single sample reports
 - Include disinfectant resistance results in the report.
 - MLST core gene analysis added to `--isolates` parameter.
+
 ### Changed
--`species` parameter is removed, valid pointfinder species will be inferred from MSLT results.
+- `species` parameter is removed, valid pointfinder species will be inferred from MSLT results.
 - In case `flye` fails due to low coverage, the workflow will continue and this will be indicated in the report.
 - Bumped minimum required Nextflow version to 22.10.8
 - Enum choices are enumerated in the `--help` output
 - Enum choices are enumerated as part of the error message when a user has selected an invalid choice
+
 ### Fixed
 - Replaced `--threads` option in fastqingress with hardcoded values to remove warning about undefined `param.threads`
 
