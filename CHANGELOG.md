@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - GitHub issue templates
+- Output GFF and GBK files from Prokka
 
 ## [v0.3.0]	]
 ### Added
