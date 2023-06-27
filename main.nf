@@ -215,7 +215,7 @@ process runProkka {
     input:
         tuple val(meta), path("consensus.fasta.gz")
     output:
-        tuple val(meta), path("*prokka_results/*prokka.gff")
+        tuple val(meta), path("*prokka_results/*prokka.gff"), path("*prokka_results/*prokka.gbk")
 
     script:
         def prokka_opts = params.prokka_opts ?: ""
@@ -558,7 +558,7 @@ workflow calling_pipeline {
             workflow_params,
             variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
-            prokka.map{ meta, gff -> gff }.collect().ifEmpty(OPTIONAL_FILE),
+            prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
             per_read_stats,
             depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
@@ -606,7 +606,7 @@ workflow calling_pipeline {
             consensus.map {meta, assembly -> assembly},
             report,
             perSampleReports,
-            prokka.map{meta, prokka -> prokka},
+            prokka.map{meta, gff, gbk -> [gff, gbk]},
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
             mlst.map {meta, mlst -> mlst},
