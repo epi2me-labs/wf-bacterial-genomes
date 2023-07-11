@@ -24,7 +24,7 @@ docker-run:
           when: never
         - if: $MATRIX_NAME == "de-novo"
           variables:
-              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
                   --fastq test_data/fastq --threads 3 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantConsensus,makePerSampleReports"
         - if: $MATRIX_NAME == "reference-based"
@@ -38,7 +38,7 @@ docker-run:
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "amr"
           variables:
-              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
                   --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus,makePerSampleReports"
         - if: $MATRIX_NAME == "sample-sheet"
@@ -48,7 +48,7 @@ docker-run:
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "mlst"
           variables:
-              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
               --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq/barcode08 --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
         - if: $MATRIX_NAME == "barcode04"
@@ -60,7 +60,7 @@ docker-run:
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantConsensus,makeReport,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "mixed-species"
           variables:
-              NF_WORKFLOW_OPTS: "-executor.$$local.memory 16GB \
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
               --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq/ --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantConsensus"
         - if: $MATRIX_NAME == "reference-iso"

@@ -43,14 +43,11 @@ process resfinder {
         -o ${meta.alias}_resfinder_results \
         -j ${meta.alias}_resfinder_results/${meta.alias}_resfinder.json \
         -l ${resfinder_coverage} \
-        -u \
         -t ${resfinder_threshold} \
         --acquired \
         -s "${species}" \
-        -s "${species}" \
         --point \
         -ifa input_genome.fasta \
-        --nanopore \
         --nanopore \
         --disinfectant || exit 0
     """
@@ -95,6 +92,5 @@ workflow run_isolates {
    emit:
       amr = amr_results.map{meta, amr, species -> [meta, amr]}
       report_table = processed
-      mlst = mlst_results
       mlst = mlst_results
 }

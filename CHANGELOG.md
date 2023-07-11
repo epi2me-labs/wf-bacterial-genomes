@@ -4,12 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v0.3.1]
 ### Changed
 - GitHub issue templates
 - Output GFF and GBK files from Prokka
+- Updated resfinder version to 4.3.2
+- Removed mutation of unknown effect in SNP-mediated AMR genes output
 
-## [v0.3.0]	]
+## [v0.3.0]	
 ### Added
 - Isolate single sample reports
 - Include disinfectant resistance results in the report.
