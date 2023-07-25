@@ -10,7 +10,7 @@ OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 FLYE_MIN_COVERAGE_THRESHOLD = 5
 
 process readStats {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 1
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
@@ -27,7 +27,7 @@ process readStats {
 
 
 process coverStats {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 2
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
@@ -45,7 +45,7 @@ process coverStats {
 
 
 process deNovo {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus params.threads
     input:
         tuple val(meta), path("reads.fastq.gz")
@@ -89,7 +89,7 @@ process deNovo {
 
 
 process alignReads {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus params.threads
     input:
         tuple val(meta), path("reads.fastq.gz"), path("ref.fasta.gz")
@@ -264,7 +264,7 @@ process mlstVersion {
 
 
 process getVersions {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 1
     input:
         path "input_versions.txt"
@@ -283,7 +283,7 @@ process getVersions {
 
 
 process getParams {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 1
     output:
         path "params.json"
@@ -297,7 +297,7 @@ process getParams {
 
 
 process makeReport {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 1
     input:
         path "versions/*"
@@ -338,7 +338,7 @@ process makeReport {
 
 
 process makePerSampleReports {
-    label params.process_label
+    label "wfbacterialgenomes"
     cpus 1
     input:
         path "versions.txt"
@@ -374,7 +374,7 @@ process makePerSampleReports {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    label params.process_label
+    label "wfbacterialgenomes"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         path fname
@@ -387,7 +387,7 @@ process output {
 
 
 process lookup_medaka_consensus_model {
-    label params.process_label
+    label "wfbacterialgenomes"
     input:
         path("lookup_table")
         val basecall_model
@@ -402,7 +402,7 @@ process lookup_medaka_consensus_model {
 
 
 process lookup_medaka_variant_model {
-    label params.process_label
+    label "wfbacterialgenomes"
     input:
         path("lookup_table")
         val basecall_model
@@ -419,7 +419,7 @@ process lookup_medaka_variant_model {
 // Creates a new directory named after the sample alias and moves the fastcat results
 // into it.
 process collectFastqIngressResultsInDir {
-    label params.process_label
+    label "wfbacterialgenomes"
     input:
         // both the fastcat seqs as well as stats might be `OPTIONAL_FILE` --> stage in
         // different sub-directories to avoid name collisions
