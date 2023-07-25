@@ -224,12 +224,6 @@
             "type": "string",
             "hidden": true
         },
-        "process_label": {
-            "type": "string",
-            "description": "The main process label for template processes to use by default",
-            "hidden": true,
-            "default": "wf-template"
-        },
         "aws_queue": {
             "type": "string",
             "hidden": true
