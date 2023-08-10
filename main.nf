@@ -469,7 +469,12 @@ workflow calling_pipeline {
                 }
             }
             named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
-            read_ref_groups = input_reads.join(named_refs)
+            // Nextflow might be run in strict mode (e.g. in CI) which prevents `join`
+            // from dropping non-matching entries. We have to use `remainder: true` and
+            // filter afterwards instead.
+            read_ref_groups = input_reads.join(named_refs, remainder: true).filter {
+                meta, reads, asm -> asm
+            }
             flye_info = deNovo.out.asm.map { meta, asm, stats -> [meta, stats] }
         } else {
             log.info("Reference based assembly selected.")
