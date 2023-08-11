@@ -109,7 +109,7 @@ process splitRegions {
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
-        stdout
+        path "output.txt"
     """
     #!/usr/bin/env python
 
@@ -120,9 +120,10 @@ process splitRegions {
         x.split(${params.chunk_size}, overlap=1000, fixed_size=False)
         for x in medaka.common.get_bam_regions("align.bam"))
     region_list = []
-    for reg in regions:
-        # don't ask...just grep &split!
-        print("${meta.alias}" + '&split!' + str(reg))
+    with open("output.txt", "w") as outfile:
+        for reg in regions:
+            # don't ask...just grep &split!
+            outfile.write("${meta.alias}" + '&split!' + str(reg) + "\\n")
     """
 }
 
