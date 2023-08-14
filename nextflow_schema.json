@@ -16,23 +16,27 @@
             "properties": {
                 "fastq": {
                     "type": "string",
+                    "title": "FASTQ",
                     "format": "path",
                     "description": "FASTQ files to use in the analysis.",
                     "help_text": "This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "reference_based_assembly": {
                     "type": "boolean",
+                    "title": "Reference-based assembly",
                     "help_text": "By default de-novo assembly will be performed with Flye. Enable this to instead perform a reference-based consensus. A reference must be provided.",
                     "description": "Enable reference guided assembly instead of de-novo assembly."
                 },
                 "reference": {
                     "type": "string",
+                    "title": "Reference FASTA",
                     "format": "file-path",
                     "description": "Reference sequence FASTA file.",
-                    "help_text": "The reference sequence is used when performing reference-based assembly and may we used as a benchmark for de-novo assemblies."
+                    "help_text": "The reference sequence is used when performing reference-based assembly."
                 },
                 "basecaller_cfg": {
                     "type": "string",
+                    "title": "Basecaller model configuration",
                     "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
                     "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_variant_model' and 'medaka_consensus_model' parameters. The model list only shows models that are compatible with this workflow.",
                     "default": "dna_r10.4.1_e8.2_400bps_hac",
@@ -56,14 +60,51 @@
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
+                    "title": "Analyse unclassified reads",
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 }
             },
-            "required": [
-                "fastq",
-                "basecaller_cfg"
-            ]
+            "allOf": [
+                {
+                    "required": [
+                        "fastq"
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "basecaller_cfg"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "medaka_consesus_model"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "basecaller_cfg"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "medaka_variant_model"
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "dependencies": {
+                "reference_based_assembly": [
+                    "reference"
+                ]
+            }
         },
         "samples": {
             "title": "Sample Options",
@@ -73,6 +114,7 @@
             "properties": {
                 "sample_sheet": {
                     "type": "string",
+                    "title": "Sample sheet",
                     "format": "file-path",
                     "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files.",
                     "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
@@ -91,6 +133,7 @@
             "properties": {
                 "out_dir": {
                     "type": "string",
+                    "title": "Output directory",
                     "default": "output",
                     "format": "directory-path",
                     "description": "Directory for output of all workflow results."
@@ -105,28 +148,33 @@
             "properties": {
                 "isolates": {
                     "type": "boolean",
+                    "title": "Isolates mode",
                     "default": false,
                     "description": "Run the Isolates pipeline on the assembly results if set to True.",
                     "help_text": "Will scan the bacterial genome output contigs and return a table of any antimicrobial resistance genes."
                 },
                 "resfinder_version": {
                     "type": "string",
-                    "default": "4.3.1",
+                    "title": "Resfinder version",
+                    "default": "4.3.2",
                     "description": "ResFinder version to use.",
                     "help_text": "ResFinder is the tool used to check for antimicrobial resistance genes in isolates of bacteria."
                 },
                 "resfinder_threshold": {
                     "type": "string",
+                    "title": "Resfinder gene identity threshold",
                     "default": "0.8",
                     "description": "Threshold of required identity to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
                 },
                 "resfinder_coverage": {
                     "type": "string",
+                    "title": "Resfinder gene coverage threshold",
                     "default": "0.6",
                     "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
                 },
                 "mlst_version": {
                     "type": "string",
+                    "title": "Multi-locus sequence typing (MLST) version",
                     "default": "2.23.0",
                     "description": "MLST version to use."
                 }
@@ -141,34 +189,40 @@
             "properties": {
                 "chunk_size": {
                     "type": "integer",
+                    "title": "Chunk size",
                     "default": 1000000,
                     "description": "Splits the reference sequences (or Flye assembly) into overlapping sub-regions of this size when processing with Medaka.",
                     "hidden": true
                 },
                 "run_prokka": {
                     "type": "boolean",
+                    "title": "Annotate genome with Prokka",
                     "description": "Run prokka on consensus sequence",
                     "default": true,
                     "help_text": "Will provide an output file with a list of annotations for your sequence. Optional because it can take some time."
                 },
                 "prokka_opts": {
                     "type": "string",
+                    "Title": "Additional Prokka options",
                     "description": "Command-line arguments for prokka",
                     "help_text": "[Command line arguments](https://github.com/tseemann/prokka#command-line-options) which can be used to alter prokka output annotation files."
                 },
                 "threads": {
                     "type": "integer",
+                    "title": "Threads",
                     "default": 2,
                     "description": "Number of CPU threads.",
                     "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
                 },
                 "medaka_consensus_model": {
                     "type": "string",
+                    "title": "Medaka consensus model",
                     "description": "The name of a Medaka consensus model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead."
                 },
                 "medaka_variant_model": {
                     "type": "string",
+                    "title": "Medaka variant model",
                     "description": "The name of a Medaka variant model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka variant model. You can override this by providing a model with this option instead."
                 }
@@ -182,6 +236,7 @@
             "properties": {
                 "disable_ping": {
                     "type": "boolean",
+                    "title": "Disable ping",
                     "description": "Enable to prevent sending a workflow ping."
                 },
                 "help": {
