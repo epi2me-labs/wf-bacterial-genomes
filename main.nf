@@ -153,7 +153,7 @@ process medakaNetwork {
 }
 
 
-process medakaVariantConsensus {
+process medakaVariantHdf {
     // run medaka consensus for each region
 
     label "medaka"
@@ -521,7 +521,7 @@ workflow calling_pipeline {
         // medaka variants
         if (params.reference_based_assembly){
             bam_model = regions_bams.combine(medaka_variant_model)
-            hdfs_variant = medakaVariantConsensus(bam_model)
+            hdfs_variant = medakaVariantHdf(bam_model)
             hdfs_grouped = hdfs_variant.groupTuple().combine(alignments, by: [0]).join(named_refs)
             variant = medakaVariant(hdfs_grouped)
             variants = variant.variant_stats
