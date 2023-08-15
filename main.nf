@@ -187,7 +187,8 @@ process medakaVariant {
     //       reference.* will break
     """
     medaka variant ref.fasta.gz consensus_probs*.hdf vanilla.vcf
-    medaka tools annotate vanilla.vcf ref.fasta.gz align.bam "${meta.alias}.medaka.vcf"
+    bcftools sort vanilla.vcf > vanilla.sorted.vcf
+    medaka tools annotate vanilla.sorted.vcf ref.fasta.gz align.bam "${meta.alias}.medaka.vcf"
     bgzip -i "${meta.alias}.medaka.vcf"
     bcftools stats  "${meta.alias}.medaka.vcf.gz" > "${meta.alias}.variants.stats"
     """
