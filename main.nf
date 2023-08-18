@@ -279,7 +279,6 @@ process getVersions {
     mosdepth --version | sed 's/ /,/' >> versions.txt
     flye --version | sed 's/^/flye,/' >> versions.txt
     python -c "import pomoxis; print(f'pomoxis,{pomoxis.__version__}')" >> versions.txt
-    python -c "import dna_features_viewer; print(f'dna_features_viewer,{dna_features_viewer.__version__}')" >> versions.txt
     """
 }
 
