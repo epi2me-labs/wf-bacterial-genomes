@@ -5,8 +5,8 @@ software resources, as such nextflow will need to be installed before attempting
 to run the workflow.
 
 The workflow can currently be run using either
-[Docker](https://www.docker.com/products/docker-desktop) or
-[Singularity](https://sylabs.io/singularity/) to provide isolation of
+[Docker](https://www.docker.com/products/docker-desktop) (default) or
+[Singularity](https://sylabs.io/singularity/) (`-profile singularity`) to provide isolation of
 the required software. Both methods are automated out-of-the-box provided
 either Docker or Singularity is installed.
 

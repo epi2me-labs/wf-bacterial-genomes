@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - MacOS ARM64 support
+### Changed
+- Clarify docker is default in README
 
 ## [v0.3.3]
 ### Fixed
