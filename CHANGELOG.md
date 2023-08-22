@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - MacOS ARM64 support
+- New parameter `--flye_opts` for passing additional arguments to `flye`.
 ### Changed
 - Clarify docker is default in README
 
