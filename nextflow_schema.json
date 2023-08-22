@@ -213,6 +213,12 @@
                     "description": "Command-line arguments for prokka",
                     "help_text": "[Command line arguments](https://github.com/tseemann/prokka#command-line-options) which can be used to alter prokka output annotation files."
                 },
+                "flye_opts": {
+                    "type": "string",
+                    "Title": "Additional flye options",
+                    "description": "Command-line arguments for flye",
+                    "help_text": "[Command line arguments](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) which can be used to alter the de-novo assembly process."
+                },
                 "threads": {
                     "type": "integer",
                     "title": "Threads",

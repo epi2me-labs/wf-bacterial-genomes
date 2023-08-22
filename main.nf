@@ -58,10 +58,11 @@ process deNovo {
     script:
     // flye may fail due to low coverage; in this case we don't want to cause the whole
     // workflow to crash --> exit with `0` and don't emit output files
+    def flye_opts = params.flye_opts ?: ""
     """
     LOW_COV_FAIL=0
     FLYE_EXIT_CODE=0
-    flye --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
+    flye $flye_opts --nano-raw reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
     FLYE_EXIT_CODE=\$?
 
     if [[ \$FLYE_EXIT_CODE -eq 0 ]]; then
