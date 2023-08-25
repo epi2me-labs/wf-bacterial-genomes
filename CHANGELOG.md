@@ -4,12 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v0.4.0]
 ### Added
 - MacOS ARM64 support
 - New parameter `--flye_opts` for passing additional arguments to `flye`.
 ### Changed
 - Clarify docker is default in README
+### Fixed
+- De novo assembly failing due to low coverage in some situations.
 
 ## [v0.3.3]
 ### Fixed
