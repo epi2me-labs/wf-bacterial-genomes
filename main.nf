@@ -71,8 +71,14 @@ process deNovo {
         bgzip "${meta.alias}.draft_assembly.fasta"
     else
         # flye failed --> check the log to see if low coverage caused the failure
-        edge_cov=\$(grep -oP 'Mean edge coverage: \\K\\d+' output/flye.log)
-        ovlp_cov=\$(grep -oP 'Overlap-based coverage: \\K\\d+' output/flye.log)
+        edge_cov=\$(
+            grep -oP 'Mean edge coverage: \\K\\d+' output/flye.log \
+            || echo $FLYE_MIN_COVERAGE_THRESHOLD
+        )
+        ovlp_cov=\$(
+            grep -oP 'Overlap-based coverage: \\K\\d+' output/flye.log \
+            || echo $FLYE_MIN_COVERAGE_THRESHOLD
+        )
         if [[
             \$edge_cov -lt $FLYE_MIN_COVERAGE_THRESHOLD ||
             \$ovlp_cov -lt $FLYE_MIN_COVERAGE_THRESHOLD
