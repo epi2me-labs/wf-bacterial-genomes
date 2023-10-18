@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 import groovy.json.JsonBuilder
 
-include { fastq_ingress } from './lib/fastqingress'
+include { fastq_ingress } from './lib/ingress'
 include { run_isolates } from './modules/local/isolates'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
@@ -313,7 +313,7 @@ process makeReport {
         path "variants/*"
         val sample_ids
         path "prokka/*"
-        path per_read_stats
+        path "per_read_stats/?.gz"
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
@@ -328,12 +328,10 @@ process makeReport {
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         isolates = params.isolates as Boolean ? "--isolates" : ""
         samples = sample_ids.join(" ")
-        String stats_args = \
-            (per_read_stats.name == OPTIONAL_FILE.name) ? "" : "--stats $per_read_stats"
     // NOTE: the script assumes the various subdirectories
     """
     workflow-glue report \
-    $stats_args \
+    --stats per_read_stats/* \
     $prokka \
     $denovo \
     $isolates \
@@ -457,11 +455,6 @@ workflow calling_pipeline {
         reads
         reference
     main:
-        per_read_stats = reads.map {
-            it[2] ? it[2].resolve('per-read-stats.tsv') : null
-        }
-        | collectFile ( keepHeader: true )
-        | ifEmpty ( OPTIONAL_FILE )
         input_reads = reads.map { meta, reads, stats -> [meta, reads] }
         sample_ids = reads.map { meta, reads, stats -> meta.alias }
         if (params.reference_based_assembly && !params.reference){
@@ -572,7 +565,9 @@ workflow calling_pipeline {
             variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
             prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
-            per_read_stats,
+            reads.map { meta, reads, stats_dir -> 
+                stats_dir ? stats_dir.resolve('per-read-stats.tsv.gz') : null
+            }.filter({!(null in it)}).toList(),
             depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
@@ -583,7 +578,7 @@ workflow calling_pipeline {
         if (params.isolates) {
             report_files_per_sample = reads
             | map { meta, reads, stats_dir ->
-                [meta, stats_dir.resolve("per-read-stats.tsv")]
+                [meta, stats_dir.resolve("per-read-stats.tsv.gz")]
             }
             | join(vcf_variant, remainder: true)
             | join(variants, remainder: true)
@@ -635,16 +630,14 @@ workflow calling_pipeline {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    if (params.disable_ping == false) {
-        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-    }
+    Pinguscript.ping_start(nextflow, workflow, params)
 
     samples = fastq_ingress([
         "input":params.fastq,
         "sample":params.sample,
         "sample_sheet":params.sample_sheet,
         "analyse_unclassified":params.analyse_unclassified,
-        "fastcat_stats": params.wf.fastcat_stats,
+        "stats": params.wf.fastcat_stats,
         "fastcat_extra_args": ""])
 
     reference = params.reference
@@ -652,12 +645,9 @@ workflow {
     output(results.all_out)
 }
 
-if (params.disable_ping == false) {
-    workflow.onComplete {
-        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-    }
-
-    workflow.onError {
-        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-    }
+workflow.onComplete {
+    Pinguscript.ping_complete(nextflow, workflow, params)
+}
+workflow.onError {
+    Pinguscript.ping_error(nextflow, workflow, params)
 }

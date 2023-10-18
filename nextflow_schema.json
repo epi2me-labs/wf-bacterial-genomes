@@ -66,6 +66,7 @@
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
+                    "default": false,
                     "title": "Analyse unclassified reads",
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
@@ -222,7 +223,7 @@
                 "threads": {
                     "type": "integer",
                     "title": "Threads",
-                    "default": 2,
+                    "default": 3,
                     "description": "Number of CPU threads.",
                     "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
                 },
@@ -248,17 +249,20 @@
             "properties": {
                 "disable_ping": {
                     "type": "boolean",
+                    "default": false,
                     "title": "Disable ping",
                     "description": "Enable to prevent sending a workflow ping."
                 },
                 "help": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
                 },
                 "version": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
