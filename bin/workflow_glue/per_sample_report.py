@@ -319,7 +319,7 @@ def main(args):
         params_data = json.load(fh)
 
     run_summary_dict = get_run_summary(
-        "report_files/per-read-stats.tsv",
+        "report_files/per-read-stats.tsv.gz",
         f"report_files/{args.sample_alias}.mlst.json",
         params_data["reference"]
         )
