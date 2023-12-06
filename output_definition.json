@@ -1,0 +1,68 @@
+{
+  "files": {
+    "workflow-report": {
+      "filepath": "./wf-bacterial-genomes-report.html",
+      "title": "Workflow report",
+      "description": "Report for all samples",
+      "mime-type": "text/html",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "assembly": {
+      "filepath": "./{{ alias }}.medaka.fasta.gz",
+      "title": "Draft assembly FASTA file",
+      "description": "Consensus file generated from either de-novo assembly or reference variant calling pipeline.",
+      "mime-type": "application/gzip",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "variants": {
+      "filepath": "./{{ alias }}.medaka.vcf.gz",
+      "title": "Variants VCF file",
+      "description": "VCF file of variants detected against the provided reference (Reference mode only).",
+      "mime-type": "application/gzip",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "variants_stats": {
+      "filepath": "./{{ alias }}.variants.stats",
+      "title": "Variants summary",
+      "description": "TSV file of summary statistics for variants in sample (Reference mode only).",
+      "mime-type": "text/tab-seperated-values",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "Annotations": {
+      "filepath": "./{{ alias }}.prokka.{gbk,gff}",
+      "title": "Annotations files",
+      "description": "Annotations of regions of interest in assembly in GBK and GFF format.",
+      "mime-type": "application/octet-stream",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "mlst": {
+      "filepath": "./{{ alias }}.mlst.json",
+      "title": "Sequence typing results",
+      "description": "Sequence typing results in JSON format (isolates mode only).",
+      "mime-type": "application/json",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "amr": {
+      "filepath": "./{{ alias }}_resfinder_results",
+      "title": "AMR calling results",
+      "description": "Resfinder results for AMR calling (isolates mode only).",
+      "mime-type": "inode/directory",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "isolates-report": {
+      "filepath": "/{{ alias }}-isolates-report.html",
+      "title": "isolates per sample report",
+      "description": "Per sample report isolates mode",
+      "mime-type": "text/html",
+      "optional": true,
+      "type": "per-sample"
+    }
+  }
+}

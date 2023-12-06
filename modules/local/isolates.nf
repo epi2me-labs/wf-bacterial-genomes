@@ -1,6 +1,7 @@
 process mlstSearch {
     label "mlst"
     cpus 1
+    memory "1 GB"
     input:
         tuple val(meta), path("input_genome.fasta.gz")
     output:
@@ -15,19 +16,22 @@ process mlstSearch {
 process getPointfinderSpecies {
     label "wfbacterialgenomes"
     cpus 1
+    memory "500 MB"
     input:
         tuple val(meta), path("${meta.alias}.mlst.json")
     output:
         tuple val(meta), stdout
-    shell:
-    '''
-    pf_species=$(workflow-glue pointfinder_species --mlst_json '!{meta.alias}.mlst.json')
-    echo $pf_species
-    '''
+    script:
+    """
+    workflow-glue pointfinder_species --mlst_json ${meta.alias}.mlst.json
+
+    """
 }
 
 process resfinder {
     label "amr"
+    cpus 2
+    memory "2 GB"
     errorStrategy 'ignore'
     input:
         tuple val(meta), path("input_genome.fasta.gz"), val(species)
@@ -56,6 +60,8 @@ process resfinder {
 process processResfinder {
     // Disinfection not processed yet (CW-2106)
     label "wfbacterialgenomes"
+    cpus 2
+    memory "500 MB"
     input:
         tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
     output:

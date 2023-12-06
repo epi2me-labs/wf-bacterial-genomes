@@ -2,6 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-bacterial-genomes",
+    "workflow_title" : "Bacterial assembly and annotation workflow",
     "description": "Assembly, variant calling, and annotation of bacterial genomes.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-bacterial-genomes/wf-bacterial-genomes-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-bacterial-genomes/wf-bacterial-genomes-demo/aws.nextflow.config",
@@ -23,6 +24,7 @@
                 },
                 "reference_based_assembly": {
                     "type": "boolean",
+                    "default": false,   
                     "title": "Reference-based assembly",
                     "help_text": "By default de-novo assembly will be performed with Flye. Enable this to instead perform a reference-based consensus. A reference must be provided.",
                     "description": "Enable reference guided assembly instead of de-novo assembly."
@@ -38,7 +40,7 @@
                     "type": "string",
                     "title": "Basecaller model configuration",
                     "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
-                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_variant_model' and 'medaka_consensus_model' parameters. The model list only shows models that are compatible with this workflow.",
+                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the `medaka_variant_model` and `medaka_consensus_model` parameters. The model list only shows models that are compatible with this workflow.",
                     "default": "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
                     "enum": [
                         "dna_r10.4.1_e8.2_400bps_hac@v4.2.0",
@@ -108,8 +110,8 @@
                 }
             ],
             "dependencies": {
-                "reference_based_assembly": [
-                    "reference"
+                "reference": [
+                    "reference_based_assembly"
                 ]
             }
         },
@@ -158,7 +160,7 @@
                     "title": "Isolates mode",
                     "default": false,
                     "description": "Run the Isolates pipeline on the assembly results if set to True.",
-                    "help_text": "Will scan the bacterial genome output contigs and return a table of any antimicrobial resistance genes."
+                    "help_text": "Isolates mode adds further analysis options to the workflow such as multi-locus sequence typing and antimicrobial resistance calling, as well as producing single reports for each sample in the run."
                 },
                 "resfinder_version": {
                     "type": "string",
@@ -171,13 +173,15 @@
                     "type": "string",
                     "title": "Resfinder gene identity threshold",
                     "default": "0.8",
-                    "description": "Threshold of required identity to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
+                    "description": "Threshold of required identity to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00",
+                    "help_text": "Identity refers to the ratio of base pairs that match between the sequence in your assembly and that of the sequence in the ResFinder database. Increasing the threshold will results in fewer, but more accurate hits against the database."
                 },
                 "resfinder_coverage": {
                     "type": "string",
                     "title": "Resfinder gene coverage threshold",
                     "default": "0.6",
-                    "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00"
+                    "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00",
+                    "help_text": "The amount of an AMR gene that has to be present within the assembly as compared to the reference in the ResFinder database."
                 },
                 "mlst_version": {
                     "type": "string",
@@ -220,13 +224,6 @@
                     "description": "Command-line arguments for flye",
                     "help_text": "[Command line arguments](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) which can be used to alter the de-novo assembly process."
                 },
-                "threads": {
-                    "type": "integer",
-                    "title": "Threads",
-                    "default": 3,
-                    "description": "Number of CPU threads.",
-                    "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
-                },
                 "medaka_consensus_model": {
                     "type": "string",
                     "title": "Medaka consensus model",
@@ -247,6 +244,13 @@
             "description": "Everything else.",
             "default": "",
             "properties": {
+                "threads": {
+                    "type": "integer",
+                    "title": "Threads",
+                    "default": 3,
+                    "description": "Number of CPU threads.",
+                    "help_text": "Provided to alignment, flye assembly and prokka steps to improve performance."
+                },
                 "disable_ping": {
                     "type": "boolean",
                     "default": false,
@@ -255,7 +259,7 @@
                 },
                 "help": {
                     "type": "boolean",
-                    "default": false,
+                    "default": false,   
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
@@ -313,8 +317,16 @@
             "hidden": true
         }
     },
-    "docs": {
-        "intro": "# Introduction\n\nIf no reference is included assembly will be \ncompleted using [flye](https://github.com/fenderglass/Flye) and polished with \n[medaka](https://www.github.com/nanoporetech/medaka). If a reference is provided\nalignment will be done with [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\nand variant called using medaka. The workflow has a few optional extras. It can run\n[prokka](https://github.com/tseemann/prokka) to annotate the resulting\nconsensus sequence or [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/) to check it against a database of antimicrobial resistance genes.\n",
-        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [Singularity](https://sylabs.io/singularity/)\n* [flye](https://github.com/fenderglass/Flye)\n* [mini_align](https://github.com/nanoporetech/pomoxis/blob/master/scripts/mini_align)\n* [prokka](https://github.com/tseemann/prokka)\n* [ResFinder](https://bitbucket.org/genomicepidemiology/resfinder/src/master/)"
+    "resources": {
+        "recommended": {
+            "cpus": 16,
+            "memory": "32GB"
+        },
+        "minimum": {
+            "cpus": 4,
+            "memory": "8GB"
+        },
+        "run_time": "20-40 minutes per sample with ~50x coverage using minimum requirements",
+        "arm_support": true
     }
 }
