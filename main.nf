@@ -12,6 +12,7 @@ FLYE_MIN_COVERAGE_THRESHOLD = 5
 process readStats {
     label "wfbacterialgenomes"
     cpus 1
+    memory "2 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
@@ -29,6 +30,7 @@ process readStats {
 process coverStats {
     label "wfbacterialgenomes"
     cpus 2
+    memory "2 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
@@ -47,6 +49,7 @@ process coverStats {
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
+    memory "16 GB"
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
@@ -98,6 +101,7 @@ process deNovo {
 process alignReads {
     label "wfbacterialgenomes"
     cpus params.threads
+    memory "8 GB"
     input:
         tuple val(meta), path("reads.fastq.gz"), path("ref.fasta.gz")
     output:
@@ -113,6 +117,7 @@ process splitRegions {
 
     label "medaka"
     cpus 1
+    memory "4 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
     output:
@@ -134,7 +139,6 @@ process splitRegions {
     """
 }
 
-
 // TODO: in a single GPU environment it would be better just
 //       to use a single process for the whole bam file. Need
 //       to read up on conditional channels
@@ -144,6 +148,7 @@ process medakaNetwork {
 
     label "medaka"
     cpus 2
+    memory "8 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
@@ -165,6 +170,7 @@ process medakaVariantHdf {
 
     label "medaka"
     cpus 2
+    memory "8 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
@@ -184,6 +190,7 @@ process medakaVariantHdf {
 process medakaVariant {
     label "medaka"
     cpus 1
+    memory "4 GB"
     input:
         tuple val(meta), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
     output:
@@ -205,6 +212,7 @@ process medakaVariant {
 process medakaConsensus {
     label "medaka"
     cpus 1
+    memory "4 GB"
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai"), path("consensus_probs*.hdf"), path("reference*")
     output:
@@ -221,6 +229,7 @@ process runProkka {
     // run prokka in a basic way on the consensus sequence
     label "prokka"
     cpus params.threads
+    memory "4 GB"
     input:
         tuple val(meta), path("consensus.fasta.gz")
     output:
@@ -238,6 +247,8 @@ process runProkka {
 
 process prokkaVersion {
     label "prokka"
+    cpus 1
+    memory "250 MB"
     output:
         path "prokka_version.txt"
     """
@@ -248,6 +259,8 @@ process prokkaVersion {
 
 process medakaVersion {
     label "medaka"
+    cpus 1
+    memory "250 MB"
     input:
         path "input_versions.txt"
     output:
@@ -260,6 +273,8 @@ process medakaVersion {
 
 process mlstVersion {
     label "mlst"
+    cpus 1
+    memory "250 MB"
     input:
         path "input_version.txt"
     output:
@@ -275,6 +290,7 @@ process mlstVersion {
 process getVersions {
     label "wfbacterialgenomes"
     cpus 1
+    memory "500 MB"
     input:
         path "input_versions.txt"
     output:
@@ -293,6 +309,7 @@ process getVersions {
 process getParams {
     label "wfbacterialgenomes"
     cpus 1
+    memory "500 MB"
     output:
         path "params.json"
     script:
@@ -307,6 +324,7 @@ process getParams {
 process makeReport {
     label "wfbacterialgenomes"
     cpus 1
+    memory "1 GB"
     input:
         path "versions/*"
         path "params.json"
@@ -346,6 +364,7 @@ process makeReport {
 process makePerSampleReports {
     label "wfbacterialgenomes"
     cpus 1
+    memory "1 GB"
     input:
         path "versions.txt"
         path "params.json"
@@ -381,6 +400,8 @@ process makePerSampleReports {
 process output {
     // publish inputs to output directory
     label "wfbacterialgenomes"
+    cpus 1
+    memory "2 GB"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         path fname
@@ -394,6 +415,8 @@ process output {
 
 process lookup_medaka_consensus_model {
     label "wfbacterialgenomes"
+    cpus 1
+    memory "500 MB"
     input:
         path("lookup_table")
         val basecall_model
@@ -409,6 +432,8 @@ process lookup_medaka_consensus_model {
 
 process lookup_medaka_variant_model {
     label "wfbacterialgenomes"
+    cpus 1
+    memory "500 MB"
     input:
         path("lookup_table")
         val basecall_model
@@ -426,6 +451,8 @@ process lookup_medaka_variant_model {
 // into it.
 process collectFastqIngressResultsInDir {
     label "wfbacterialgenomes"
+    cpus 1
+    memory "2 GB"
     input:
         // both the fastcat seqs as well as stats might be `OPTIONAL_FILE` --> stage in
         // different sub-directories to avoid name collisions
@@ -651,3 +678,4 @@ workflow.onComplete {
 workflow.onError {
     Pinguscript.ping_error(nextflow, workflow, params)
 }
+
