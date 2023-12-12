@@ -6,7 +6,7 @@ Recommended requirements:
 Minimum requirements:
 
 + CPUs = 4
-+ Memory = 8GB
++ Memory = 16GB
 
 Approximate run time: 20-40 minutes per sample with ~50x coverage using minimum requirements
 
