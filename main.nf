@@ -217,10 +217,10 @@ process medakaConsensus {
         tuple val(meta), path("align.bam"), path("align.bam.bai"), path("consensus_probs*.hdf"), path("reference*")
     output:
         tuple val(meta), path("${meta.alias}.medaka.fasta.gz")
-
+    shell:
     """
     medaka stitch --threads $task.cpus consensus_probs*.hdf reference* "${meta.alias}.medaka.fasta"
-    bgzip "${meta.alias}.medaka.fasta"
+    add_model_to_fasta.sh ${params.basecaller_cfg} "${meta.alias}.medaka.fasta"
     """
 }
 
