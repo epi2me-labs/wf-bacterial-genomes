@@ -73,8 +73,8 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
     --isolates \
     --reference_based_assembly \
     --reference wf-bacterial-genomes-demo/ref/ref.fasta.gz \
-    --sample_sheet wf-bacterial-genomes-demo/isolates_sample_sheet.csv
-    --profile standard
+    --sample_sheet wf-bacterial-genomes-demo/isolates_sample_sheet.csv \
+    -profile standard
 ```
 For further information about running a workflow on the cmd line see https://labs.epi2me.io/wfquickstart/
 
