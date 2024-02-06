@@ -84,7 +84,7 @@ def get_flye_stats(sample_names, flye_dir, flye_suffix):
     return flye_out, samples_with_missing_files
 
 
-def gather_sample_files(sample_names, denovo_mode, prokka_mode):
+def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode):
     """Collect files required for the report per sample and make sure they exist."""
     sample_files = {}
     subdirs_and_suffixes = {
@@ -108,18 +108,13 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode):
                 file_type in ("total_depth", "fwd_depth", "rev_depth")
                 or (file_type == "variants" and not denovo_mode)
                 or (file_type == "prokka" and prokka_mode)
+                or (file_type in ("resfinder", "mlst") and isolates_mode)
             ):
                 if not os.path.exists(file):
                     raise ValueError(
                         f"Required file '{file_type}' missing "
                         f"for sample '{sample_name}'."
                     )
-            elif file_type == "resfinder":
-                if not os.path.exists(file):
-                    file = None
-            elif (file_type == "mlst"):
-                if not os.path.exists(file):
-                    file = None
             else:
                 # this covers the cases when files are not needed (e.g. `variants` when
                 # doing a de-novo assembly)
@@ -330,7 +325,7 @@ def create_report(args):
 
     # Gather stats files for each sample (will be used by the various report sections
     # below)
-    sample_files = gather_sample_files(samples, args.denovo, args.prokka)
+    sample_files = gather_sample_files(samples, args.denovo, args.prokka, args.isolates)
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(

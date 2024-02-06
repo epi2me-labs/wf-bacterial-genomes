@@ -1,13 +1,28 @@
 #!/usr/bin/env nextflow
 
 nextflow.enable.dsl = 2
+nextflow.preview.recursion=true
 import groovy.json.JsonBuilder
 
 include { fastq_ingress } from './lib/ingress'
 include { run_isolates } from './modules/local/isolates'
 
+include {
+    accumulateCheckpoints;
+    ingressCheckpoint;
+    assemblyCheckpoint;
+    alignmentCheckpoint;
+    variantCheckpoint;
+    amrCheckpoint;
+    annotationCheckpoint;
+    perSampleReportingCheckpoint;
+    reportingCheckpoint;
+} from './modules/local/checkpoints'
+
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 FLYE_MIN_COVERAGE_THRESHOLD = 5
+
+
 
 process readStats {
     label "wfbacterialgenomes"
@@ -321,10 +336,55 @@ process getParams {
 }
 
 
+process collect_results {
+    label "wfbacterialgenomes"
+    cpus 1
+    memory "2 GB"
+    input:
+        tuple val(meta), path("report_files/*")
+        path("params.json")
+    output:
+        path "${meta.alias}.json"
+    script:
+        String alias = meta.alias
+        String barcode = meta.barcode
+        String type = meta.type
+    """
+    workflow-glue collect_results \
+        --output ${alias}.json \
+        --alias $alias \
+        --barcode $barcode \
+        --params params.json \
+        --type $type \
+        --data_dir report_files
+    """
+}
+
+
+process createRunModel {
+    label "wfbacterialgenomes"
+    cpus 1
+    memory "2 GB"
+    input:
+        path "sample_results/*"
+        val metadata
+    output:
+        path "results.json"
+    script:
+    metaJson = new JsonBuilder(metadata).toString()
+    """
+    workflow-glue create_run_model \
+        --jsons sample_results/* \
+        --metadata '${metaJson}' \
+        --output results.json
+    """
+}
+
+
 process makeReport {
     label "wfbacterialgenomes"
     cpus 1
-    memory "1 GB"
+    memory "8 GB"
     input:
         path "versions/*"
         path "params.json"
@@ -370,9 +430,8 @@ process makePerSampleReports {
         path "params.json"
         tuple val(meta), path("report_files/*")
     output:
-        path "${meta.alias}-isolate-report.html"
+        tuple val(meta), path("${meta.alias}-isolate-report.html")
     script:
-        String alias = meta.alias
         String barcode = meta.barcode
         String denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
         String prokka = params.run_prokka as Boolean ? "--prokka" : ""
@@ -386,8 +445,9 @@ process makePerSampleReports {
         --versions versions.txt \
         --params params.json \
         --output ${meta.alias}-isolate-report.html \
-        --sample-alias $alias \
+        --sample-alias ${meta.alias} \
         --sample-barcode $barcode \
+        --data_dir report_files \
         --wf-session $workflow.sessionId \
         --wf-version $workflow.manifest.version
     """
@@ -476,42 +536,73 @@ process collectFastqIngressResultsInDir {
     """
 }
 
+
 // modular workflow
 workflow calling_pipeline {
     take:
         reads
         reference
     main:
-        input_reads = reads.map { meta, reads, stats -> [meta, reads] }
+        reads.branch { meta, reads, stats -> 
+            reads : reads != null
+                return [ meta, reads ]
+            no_reads : reads == null
+                return [ meta, OPTIONAL_FILE ]
+        }.set{input_reads}
+        
+        ingress_checkpoint = ingressCheckpoint(
+            input_reads.reads | map { meta, reads -> [ meta, "complete" ] }
+            | mix (input_reads.no_reads | map { meta, reads -> [ meta, "not-met" ] } )
+        )
+
+
         sample_ids = reads.map { meta, reads, stats -> meta.alias }
+        metadata = reads.map { meta, reads, stats -> meta } | toList()
+        definitions = projectDir.resolve("./output_definition.json").toString()
+
         if (params.reference_based_assembly && !params.reference){
             throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
         }
         if (!params.reference_based_assembly){
             log.info("Running Denovo assembly.")
-            deNovo(input_reads)
+            deNovo(input_reads.reads)
             // some samples might have failed flye due to low coverage
             deNovo.out.failed.map { meta, failed ->
                 if (failed == "1") {
                     log.warn "Flye failed for sample '$meta.alias' due to low coverage."
                 }
             }
+
+            // Creat channel of failed samples for checkpoints "not-met"
+            failed_samples = input_reads.no_reads.mix(
+                deNovo.out.failed | filter { meta, failed -> failed != "0"}
+            ) | map { meta, field -> [ meta, "not-met" ] }
+            println(failed_samples.view())
             named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
             // Nextflow might be run in strict mode (e.g. in CI) which prevents `join`
             // from dropping non-matching entries. We have to use `remainder: true` and
             // filter afterwards instead.
-            read_ref_groups = input_reads.join(named_refs, remainder: true).filter {
+            read_ref_groups = input_reads.reads.join(named_refs, remainder: true).filter {
                 meta, reads, asm -> asm
             }
             flye_info = deNovo.out.asm.map { meta, asm, stats -> [meta, stats] }
         } else {
             log.info("Reference based assembly selected.")
             references = channel.fromPath(params.reference)
-            read_ref_groups = input_reads.combine(references)
+            read_ref_groups = input_reads.reads.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
             flye_info = Channel.empty()
+            failed_samples = input_reads.no_reads 
+                | map { meta, reads -> [ meta, "not-met" ] }
         }
+
         alignments = alignReads(read_ref_groups)
+        
+        // Checkpoint 1 - Alignment
+        alignment_checkpoint = alignmentCheckpoint(alignments
+        | concat( failed_samples
+        | map {meta, status -> [ meta, OPTIONAL_FILE, OPTIONAL_FILE ] } ) )
+
         read_stats = readStats(alignments)
         depth_stats = coverStats(alignments)
         regions = splitRegions(alignments).splitText()
@@ -544,6 +635,11 @@ workflow calling_pipeline {
         hdfs_grouped = alignments.combine(hdfs.groupTuple(), by: 0).join(named_refs)
         consensus = medakaConsensus(hdfs_grouped)
 
+        // Checkpoint 2 - Assembly
+        assembly_checkpoint = assemblyCheckpoint(consensus
+        | concat (failed_samples
+        | map { meta, status -> [ meta, OPTIONAL_FILE ] } ))
+
         // medaka variants
         if (params.reference_based_assembly){
             bam_model = regions_bams.combine(medaka_variant_model)
@@ -552,16 +648,36 @@ workflow calling_pipeline {
             variant = medakaVariant(hdfs_grouped)
             variants = variant.variant_stats
             vcf_variant = variant.variants
+            vcf_status = vcf_variant
+                | map { meta, variants -> [ meta, "complete" ] }
+
         } else {
             variants = Channel.empty()
-            vcf_variant = Channel.empty()
+            vcf_variant = Channel.empty() 
+            vcf_status = reads
+                | map { meta, reads , stats -> [ meta, "not-met" ] }
         }
+
+        // Checkpoint 3 - variants
+        variant_checkpoint = variantCheckpoint(vcf_status
+        | mix( failed_samples )
+        | unique() )
+
 
         if (params.run_prokka) {
             prokka = runProkka(consensus)
+            prokka_status = prokka |
+                map { meta, gff, gbk  -> [ meta, "complete" ] }
         } else {
             prokka = Channel.empty()
+            prokka_status = reads |
+                map { meta, reads, stats -> [ meta, "not-met" ] }
         }
+
+        // Checkpoint 4 - annotations
+        annotation_checkpoint = annotationCheckpoint(prokka_status
+        | mix( failed_samples )
+        | unique() )
 
         // amr and mlst calling
         if (params.isolates) {
@@ -572,13 +688,21 @@ workflow calling_pipeline {
             mlst = run_isolates.mlst
             amr = run_isolates.amr
             amr_results = run_isolates.report_table
-            
+            amr_status = amr_results |
+                map { meta, resfinder -> [ meta, "complete" ] }
             
         } else {
             amr = Channel.empty()
             amr_results = Channel.empty()
             mlst = Channel.empty()
+            amr_status = reads |
+                map { meta, reads, stats -> [ meta, "not-met" ] }
         }
+
+        // Checkpoint 5 - AMR / isolates
+        amr_checkpoint = amrCheckpoint(amr_status
+        | mix( failed_samples )
+        | unique() )
 
         prokka_version = prokkaVersion()
         medaka_version = medakaVersion(prokka_version)
@@ -586,26 +710,12 @@ workflow calling_pipeline {
         software_versions = getVersions(mlst_version)
         workflow_params = getParams()
 
-        report = makeReport(
-            software_versions,
-            workflow_params,
-            variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
-            sample_ids.collect(),
-            prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
-            reads.map { meta, reads, stats_dir -> 
-                stats_dir ? stats_dir.resolve('per-read-stats.tsv.gz') : null
-            }.filter({!(null in it)}).toList(),
-            depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
-            depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
-            depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
-            flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
-            amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
-            mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE))
-
-        if (params.isolates) {
-            report_files_per_sample = reads
-            | map { meta, reads, stats_dir ->
-                [meta, stats_dir.resolve("per-read-stats.tsv.gz")]
+        // Taken from per sample reports to fill in wf.Sample
+        // This is a temporary solution before reporting is done with results.json CW-3217
+        report_files_per_sample = reads | filter {meta, reads, stats -> reads != null }
+            | map { meta, reads, stats_dir -> 
+                
+                [meta, stats_dir ? stats_dir : null]
             }
             | join(vcf_variant, remainder: true)
             | join(variants, remainder: true)
@@ -623,30 +733,83 @@ workflow calling_pipeline {
                 // the list produced by the joins --> filter
                 [meta, files.findAll { it }]
             }
+        
+        sample_jsons = collect_results(report_files_per_sample, workflow_params)
+
+        run_model = createRunModel(
+            sample_jsons.collect(),
+            metadata
+        )
+
+        report = makeReport(
+            software_versions,
+            workflow_params,
+            variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
+            sample_ids.collect(),
+            prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
+            reads.map { meta, reads, stats_dir -> 
+                stats_dir ? stats_dir.resolve('per-read-stats.tsv.gz') : null
+            }.filter({!(null in it)}).toList(),
+            depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
+            flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
+            amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
+            mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE))
+        
+        // Checkpoint 6 - report
+        reporting_checkpoint = reportingCheckpoint(report)
+
+
+        if (params.isolates) {
             perSampleReports = makePerSampleReports(
                 software_versions,
                 workflow_params,
                 report_files_per_sample
             )
+            per_sample_report_status = perSampleReports 
+                | map { meta, report -> [ meta, "complete" ] }
         } else {
             perSampleReports = Channel.empty()
+            per_sample_report_status = reads |
+                map { meta, reads, stats -> [ meta, "not-met" ] }
         }
+        
+        // Checkpoint 7 - per sample report
+        per_sample_reporting_checkpoint = perSampleReportingCheckpoint(per_sample_report_status
+        | mix( failed_samples )
+        | unique() )
+
+        accumulateCheckpoints.scan(
+        ingress_checkpoint.mix(
+            alignment_checkpoint,
+            assembly_checkpoint,
+            variant_checkpoint,
+            annotation_checkpoint,
+            amr_checkpoint,
+            reporting_checkpoint,
+            per_sample_reporting_checkpoint
+        ),
+        metadata,
+        definitions
+    )
 
         fastq_stats = reads
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
         | collectFastqIngressResultsInDir
         all_out = variants.map{meta, stats -> stats}.concat(
-            vcf_variant.map{meta, vcf -> vcf},
+            vcf_variant.map {meta, vcf -> vcf},
             consensus.map {meta, assembly -> assembly},
             report,
-            perSampleReports,
+            perSampleReports.map {meta, report -> report},
             prokka.map{meta, gff, gbk -> [gff, gbk]},
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
             mlst.map {meta, mlst -> mlst},
             workflow_params,
             software_versions,
+            run_model
         )
 
     emit:
@@ -658,6 +821,13 @@ workflow calling_pipeline {
 WorkflowMain.initialise(workflow, params, log)
 workflow {
     Pinguscript.ping_start(nextflow, workflow, params)
+
+      File checkpoints_file = new File("checkpoints.json");  
+
+    if (checkpoints_file.exists() == true && workflow.resume == false){
+      checkpoints_file.delete()
+    }
+
 
     samples = fastq_ingress([
         "input":params.fastq,

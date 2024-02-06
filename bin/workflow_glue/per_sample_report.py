@@ -6,11 +6,12 @@ from dominate import tags as html_tags
 from ezcharts.components.reports import labs
 import pandas as pd
 
+from .collect_results import gather_sample_files  # noqa: ABS101
 from .parsers import parse_mlst  # noqa: ABS101
 from .process_resfinder_iso import (  # noqa: ABS101
     get_acquired_data,
     get_point_data
-)   # noqa: I100,I202
+)
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
@@ -41,18 +42,24 @@ def lead_section(text):
     return _div
 
 
-def get_run_summary(read_stats, mlst_file, reference=None):
+def get_run_summary(files, reference=None):
     """Get run summary statistics."""
-    run_dict = dict()
-    read_df = pd.read_csv(read_stats, sep="\t")
-    total_yield = read_df["read_length"].sum()
-    median_read_length = read_df["read_length"].median()
-    median_read_quality = read_df["mean_quality"].median()
-    mlst_df = parse_mlst(mlst_file)
-    if mlst_df is None:
-        taxon = "Unknown"
-    else:
-        taxon = mlst_df.loc[0, "scheme"]
+    run_dict = {}
+    total_yield = 0
+    median_read_length = 0
+    median_read_length = 0
+    if files["fastcat"]:
+        read_df = pd.read_csv(files["fastcat"], sep="\t")
+        total_yield = read_df["read_length"].sum()
+        median_read_length = read_df["read_length"].median()
+        median_read_quality = read_df["mean_quality"].median()
+
+    taxon = "Unknown"
+    if files["mlst"]:
+        mlst_df = parse_mlst(files["mlst"])
+        if mlst_df is not None:
+            taxon = mlst_df.loc[0, "scheme"]
+
     if reference is None:
         run_dict["taxon"] = taxon.capitalize()
     else:
@@ -309,6 +316,8 @@ def main(args):
         args.versions,
     )
 
+    files = gather_sample_files(args.sample_alias, args.data_dir)
+
     lead_summary = lead_section(dict(
         sample=args.sample_alias,
         barcode=args.sample_barcode,
@@ -319,8 +328,7 @@ def main(args):
         params_data = json.load(fh)
 
     run_summary_dict = get_run_summary(
-        "report_files/per-read-stats.tsv.gz",
-        f"report_files/{args.sample_alias}.mlst.json",
+        files,
         params_data["reference"]
         )
 
@@ -333,23 +341,19 @@ def main(args):
 
     with report.add_section("Multilocus sequencing typing (MLST)", "MLST"):
         with html_tags.div(cls="row"):
-            mlst_section(f"report_files/{args.sample_alias}.mlst.json")
+            if files["mlst"]:
+                mlst_section(files["mlst"])
+            else:
+                html_tags.p("MLST was unable to be perfomed.")
 
     with report.add_section('Antimicrobial resistance prediction', 'AMR', True):
         with html_tags.div(cls="accordion", id="accordionTable"):
-            if os.path.exists(
-                f"report_files/{args.sample_alias}_resfinder_results/"
-                f"{args.sample_alias}_resfinder.json"
-            ):
+            if files["amr"]:
                 html_tags.p(
                     "Analysis was performed using ResFinder. "
                     "Click on each gene for more information."
                 )
-                amr_section(
-                    f"report_files/{args.sample_alias}_resfinder_results/"
-                    f"{args.sample_alias}_resfinder.json",
-                    "accordionTable"
-                )
+                amr_section(files["amr"], "accordionTable")
             else:
                 html_tags.p("No AMR genes detected for specific species.")
 
@@ -360,13 +364,24 @@ def main(args):
                     "Analysis was completed using an alignment with the provided "
                     "reference, and Medaka was used for variant calling."
                 )
-                ref_section(f"report_files/{args.sample_alias}.total.regions.bed.gz")
+                if files["depth"]:
+                    ref_section(files["depth"])
+                else:
+                    html_tags.p(
+                        "No coverage information, please check input data quality."
+                        )
             else:
                 html_tags.p(
                     "As no reference was provided the reads were assembled"
                     " and corrected using Flye and Medaka."
                 )
-                flye_section(f"report_files/{args.sample_alias}_flye_stats.tsv")
+                if files["flye"]:
+                    flye_section(files["flye"])
+                else:
+                    html_tags.p(
+                        """No denovo assembly for sample.
+                         Please check input data quality."""
+                        )
 
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
@@ -400,6 +415,7 @@ def argparser():
     parser.add_argument("--output", help="Report output filename")
     parser.add_argument("--sample-alias", required=True)
     parser.add_argument("--sample-barcode", required=True)
+    parser.add_argument("--data_dir", required=True, help="Analysis results directory")
     parser.add_argument("--wf-session", required=True)
     parser.add_argument("--wf-version", required=True)
     return parser
