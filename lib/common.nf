@@ -3,6 +3,7 @@ import groovy.json.JsonBuilder
 process getParams {
     label "wf_common"
     cpus 1
+    memory "500 MB"
     output:
         path "params.json"
     script:
@@ -12,4 +13,3 @@ process getParams {
     echo '$paramsJSON' > params.json
     """
 }
-

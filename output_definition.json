@@ -1,23 +1,79 @@
 {
   "files": {
     "workflow-report": {
-      "filepath": "./wf-bacterial-genomes-report.html",
+      "filepath": "wf-bacterial-genomes-report.html",
       "title": "Workflow report",
       "description": "Report for all samples",
       "mime-type": "text/html",
       "optional": false,
       "type": "aggregated"
     },
-    "assembly": {
-      "filepath": "./{{ alias }}.medaka.fasta.gz",
-      "title": "Draft assembly FASTA file",
-      "description": "Consensus file generated from either de-novo assembly or reference variant calling pipeline.",
+    "workflow-results": {
+      "filepath": "results.json",
+      "title": "Workflow results",
+      "description": "Structured workflow results for internal/onward use.",
+      "mime-type": "text/json",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "workflow-checkpoints" : {
+      "filepath": "checkpoints.json",
+      "title": "workflow checkpoints",
+      "description": "Structured workflow checkpoints for internal/onward use.",
+      "mime-type": "text/json",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "sample-data": {
+      "filepath": "{{ alias }}/seqs.fastq.gz",
+      "title": "Concatenated sequence data",
+      "description": "Per sample reads concatenated in to one fastq file.",
       "mime-type": "application/gzip",
       "optional": false,
       "type": "per-sample"
     },
+    "read-stats-per-file": {
+      "filepath": "{{ alias }}/fastcat_stats/per-file-stats.tsv",
+      "title": "Per file read stats",
+      "description": "A TSV with per file read stats, per sample.",
+      "mime-type": "text/tsv",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "read-stats-per-read": {
+      "filepath": "{{ alias }}/fastcat_stats/per-read-stats.tsv.gz",
+      "title": "Per read stats",
+      "description": "A TSV with per read stats, per sample",
+      "mime-type": "application/gzip",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "alignment": {
+      "filepath": "{{ alias }}.bam",
+      "title": "alignment",
+      "description": "Aligned reads for the sample in BAM format.",
+      "mime-type": "application/x-gzip",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "alignment-index": {
+      "filepath": "{{ alias }}.bam.bai",
+      "title": "alignment index",
+      "description": "An index file for the alignment in BAI format.",
+      "mime-type": "application/x-gzip",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "assembly": {
+      "filepath": "{{ alias }}.medaka.fasta.gz",
+      "title": "Draft assembly FASTA file",
+      "description": "Consensus file generated from either de-novo assembly or reference variant calling pipeline.",
+      "mime-type": "application/gzip",
+      "optional": true,
+      "type": "per-sample"
+    },
     "variants": {
-      "filepath": "./{{ alias }}.medaka.vcf.gz",
+      "filepath": "{{ alias }}.medaka.vcf.gz",
       "title": "Variants VCF file",
       "description": "VCF file of variants detected against the provided reference (Reference mode only).",
       "mime-type": "application/gzip",
@@ -25,15 +81,15 @@
       "type": "per-sample"
     },
     "variants_stats": {
-      "filepath": "./{{ alias }}.variants.stats",
+      "filepath": "{{ alias }}.variants.stats",
       "title": "Variants summary",
       "description": "TSV file of summary statistics for variants in sample (Reference mode only).",
       "mime-type": "text/tab-seperated-values",
       "optional": true,
       "type": "per-sample"
     },
-    "Annotations": {
-      "filepath": "./{{ alias }}.prokka.{gbk,gff}",
+    "annotation": {
+      "filepath": "{{ alias }}.prokka.gff",
       "title": "Annotations files",
       "description": "Annotations of regions of interest in assembly in GBK and GFF format.",
       "mime-type": "application/octet-stream",
@@ -41,7 +97,7 @@
       "type": "per-sample"
     },
     "mlst": {
-      "filepath": "./{{ alias }}.mlst.json",
+      "filepath": "{{ alias }}.mlst.json",
       "title": "Sequence typing results",
       "description": "Sequence typing results in JSON format (isolates mode only).",
       "mime-type": "application/json",
@@ -49,20 +105,91 @@
       "type": "per-sample"
     },
     "amr": {
-      "filepath": "./{{ alias }}_resfinder_results",
+      "filepath": "{{ alias }}_resfinder_results",
       "title": "AMR calling results",
       "description": "Resfinder results for AMR calling (isolates mode only).",
       "mime-type": "inode/directory",
       "optional": true,
       "type": "per-sample"
     },
-    "isolates-report": {
-      "filepath": "/{{ alias }}-isolates-report.html",
+    "per-sample-report": {
+      "filepath": "{{ alias }}-isolates-report.html",
       "title": "isolates per sample report",
       "description": "Per sample report isolates mode",
       "mime-type": "text/html",
       "optional": true,
       "type": "per-sample"
+    }
+  },
+  "checkpoints": {
+    "reads": {
+      "type": "per-sample",
+      "title": "reads",
+      "description": "Checkpoint to monitor data ingress",
+      "files": [
+        "sample-data",
+        "read-stats-per-file",
+        "read-stats-per-read"
+      ]
+    },
+    "alignment": {
+      "type": "per-sample",
+      "title": "alignment",
+      "description": "Checkpoint to monitor alignment",
+      "files": [
+        "alignment",
+        "alignment-index"
+      ]
+    },
+    "assembly": {
+      "type": "per-sample",
+      "title": "assembly",
+      "description": "Checkpoint to monitor alignment",
+      "files": [
+        "assembly"
+      ]
+    },
+    "variant-calling": {
+      "type": "per-sample",
+      "title": "variant calling",
+      "description": "Checkpoint to monitor variant calling",
+      "files": [
+        "variants"
+      ]
+    },
+    "annotation": {
+      "type": "per-sample",
+      "title": "annotation",
+      "description": "Checkpoint to monitor assembly annotation",
+      "files": [
+        "annotation"
+      ]
+    },
+    "amr": {
+      "type": "per-sample",
+      "title": "Antimicrobial resistance ",
+      "description": "Checkpoint to monitor amr",
+      "files": [
+        "mlst",
+        "amr"
+      ]
+    },
+    "reporting": {
+      "type": "aggregated",
+      "title": "reporting",
+      "description": "Checkpoint to monitor reporting",
+      "files": [
+        "workflow-report",
+        "workflow-results"
+      ]
+    },
+    "per-sample-report": {
+      "type": "per-sample",
+      "title": "per-sample reporting",
+      "description": "Checkpoint to monitor per-sample reporting",
+      "files": [
+        "per-sample-report"
+      ]
     }
   }
 }

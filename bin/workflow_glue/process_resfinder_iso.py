@@ -27,6 +27,9 @@ def get_acquired_data(json_file):
             "gene": v["name"],
             "drugs": v["phenotypes"],
             "database": ", ".join([db_dict[i]["name"] for i in v["ref_database"]]),
+            "start": v["query_start_pos"],
+            "end": v["query_end_pos"],
+            "contig": v["query_id"],
             "identity": round(v["identity"], 3),
             "coverage": round(v["coverage"], 3),
             "pmids": ", ".join(v["pmids"])
@@ -47,6 +50,8 @@ def get_point_data(json_file):
             point_dict[gene].append({
                 "gene": k.split(";;")[0],
                 "drugs": v["phenotypes"],
+                "start": v["ref_start_pos"],
+                "end": v["ref_end_pos"],
                 "database": db_dict[v["ref_database"]]["name"],
                 "aa": v["seq_var"],
                 "nuc": f"{v['ref_codon']}>{v['var_codon']}",

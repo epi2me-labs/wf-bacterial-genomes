@@ -1,0 +1,239 @@
+components:
+  schemas:
+    WorkflowResult:
+      type: object
+      description: Definition for results that will be returned by this workflow. This structure will be passed through by Gizmo speaking clients as WorkflowInstance.results.
+      required:
+        - samples
+      properties:
+        samples:
+          type: array
+          description: Samples in this workflow instance
+          items:
+            $ref: '#/components/schemas/Sample'
+
+
+    Sample:
+      type: object
+      description: A sample sheet entry and its corresponding checks and related results
+      required:
+        - alias
+        - barcode
+        - sample_type
+        - results
+      properties:
+        alias:
+          type: string
+          description: The alias for the sample given by the user
+        barcode:
+          type: string
+          description: The physical barcode assigned to the sample
+        sample_type:
+          type: string
+          description: The type of the sample
+          enum:
+            - no_template_control
+            - positive_control
+            - negative_control
+            - test_sample
+        results:
+          type: object
+          description: Further specific workflow results for this sample
+          $ref: '#/components/schemas/ResultsContents'
+
+
+    ResultsContents:
+      type: object
+      properties:
+        antimicrobial_resistance:
+          $ref: '#/components/schemas/AntimicrobialResistance'
+        assembly:
+          $ref: '#/components/schemas/Assembly'
+        sequence_typing:
+          $ref: '#/components/schemas/MLST'
+        fastq:
+          $ref: '#/components/schemas/FastqStats'
+
+
+    FastqStats:
+      type: object
+      description: A place to store read statistics
+      properties:
+        n_seqs:
+          type: integer
+          description: The number of sequencing reads
+        n_bases:
+          type: integer
+          description: The number of bases
+        min_length:
+          type: integer
+          description: The minimum read length
+        max_length:
+          type: integer
+          description: The maximum read length
+        mean_quality:
+          type: number
+          format: float
+          description: The mean read quality
+
+
+    AntimicrobialResistance:
+      type: object
+      description: The antimicrobial resistance results for the sample
+      properties:
+         detected_variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AMRVariants'
+    
+
+    AMRVariants:
+      type: object
+      description: AMR associated variant information
+      properties:
+        gene:
+          type: string
+        database:
+          type: string
+        drugs:
+          type: array
+          description: Antimicrobials affected by variant
+        aa:
+          type: string
+          description: Amino acid mutation
+        nuc:
+          type: string
+          description: nucleotide mutation 
+        coverage:
+          type: float
+        identity:
+          type: float
+        start: 
+          type: integer
+        end:
+          type: integer
+        contig:
+          type: string
+        pmids:
+          type: string
+          description: PMID or accession number for reference paper
+        
+
+
+    MLST:
+      type: object
+      description: Multi-locus sequence typing results for the sample
+      properties:
+        detected_species:
+          type: string
+        sequence_type:
+          type: string
+        typing_schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/SequenceTypeSchema'
+    
+
+    SequenceTypeSchema:
+      type: object
+      description: MLST schema and allele variant identified for sample
+      properties:
+        schema_identifier:
+          type: string
+        allele_variant:
+          type: string
+    
+
+    Assembly:
+      type: object
+      description: Draft genome assembly statistics of the sample
+      properties:
+        reference:
+          type: string
+          description: Name of the reference used in the assembly process. Null for de-novo
+        annotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Annotation'
+          description: Array of regions of interest identified within the assembly
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+        contig:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contig'
+
+
+    Annotation:
+      type: object
+      description: Region of interest identified within assembly
+      properties:
+        contig:
+          type: string
+        ID:
+          type: string
+        start: 
+          type: integer
+        end:
+          type: integer
+        strand:
+          type: string
+        gene:
+          type: string
+        product:
+          type: string
+        ec_number:
+          type: string
+          description: Identifier from the enzyme consortium catalogue
+      
+    Variant:
+      type: object
+      description: Variants identified in assembly compared to reference
+      properties:
+        contig:
+          type: string
+        pos:
+          type: integer
+        ref:
+          type: string
+        alt:
+          type: string
+        depth:
+          type: integer
+
+
+    Contig:
+      type: object
+      description: Summary statistics for contig in assembly
+      properties:
+        name:
+          type: string
+        length:
+          type: integer
+        coverage:
+          type: object
+          $ref: '#/components/schemas/Coverage'
+
+
+    Coverage:
+      type: object
+      description: Coverage summary information for each contig in assembly
+      properties:
+        counts:
+          type: integer
+        median:
+          type: number
+          format: float
+          description: Median coverage
+        mean:
+          type: number
+          format: float
+          description: Mean coverage
+        minimum:
+          type: integer
+          description: Minimum coverage
+        maximum:
+          type: integer
+          description: Maximum coverage
