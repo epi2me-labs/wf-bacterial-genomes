@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Some formatting in github issue template.
+- De novo assembly mode uses `--nano-hq` rather than `--nano-raw`
 
 ## [v1.0.2]
 ### Added
