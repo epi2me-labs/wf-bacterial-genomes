@@ -4,10 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
-### Fixed
-- The workflow requesting too little memory for some processes.
-
+## [v1.1.0]
 ### Added
 - Sample results aggregated into `results.json`
 - `flye_genome_size` and `flye_asm_coverage` parameters for controlling the initial downsampling step before the de novo assembly
@@ -16,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - De novo assembly mode uses `--nano-hq` rather than `--nano-raw`
 - Some formatting in github issue template.
 - Retry and memory bump if de novo assembly fails first time
+
+### Fixed
+- Workflow now runs to completion when a sample fails the de novo assembly
+- The workflow requesting too little memory for some processes.
 
 ## [v1.0.2]
 ### Added

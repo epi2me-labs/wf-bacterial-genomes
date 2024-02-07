@@ -304,7 +304,7 @@ def create_report(args):
                 if samples_flye_failed:
                     html_raw(
                         f"""
-                        <b>Info:</b> Due to too low coverage, Flye failed to produce an
+                        <b>Info:</b> Flye failed to produce an
                         assembly for the following samples:
                         <b>{", ".join(samples_flye_failed)}</b>.<br>
 
@@ -316,7 +316,7 @@ def create_report(args):
                 # not a single sample produced a valid assembly
                 html_raw(
                     """
-                    <b>Warning:</b> Due to too low coverage, Flye failed to produce an
+                    <b>Warning:</b> Flye failed to produce an
                     assembly for any of the samples. There are therefore no more results
                     to report.
                     """

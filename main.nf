@@ -23,7 +23,6 @@ OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 FLYE_MIN_COVERAGE_THRESHOLD = 5
 
 
-
 process readStats {
     label "wfbacterialgenomes"
     cpus 1
@@ -74,7 +73,7 @@ process deNovo {
             path("${meta.alias}.draft_assembly.fasta.gz"),
             path("${meta.alias}_flye_stats.tsv"),
             optional: true, emit: asm
-        tuple val(meta), env(LOW_COV_FAIL), emit: failed
+        tuple val(meta), env(COV_FAIL), emit: failed
     script:
     // flye may fail due to low coverage; in this case we don't want to cause the whole
     // workflow to crash --> exit with `0` and don't emit output files
@@ -82,7 +81,7 @@ process deNovo {
     def genome_size = params.flye_genome_size ? "--genome-size " + params.flye_genome_size : ""
     def asm_coverage = params.flye_asm_coverage ? "--asm-coverage " + params.flye_asm_coverage : ""
     """
-    LOW_COV_FAIL=0
+    COV_FAIL=0
     FLYE_EXIT_CODE=0
     flye $flye_opts $genome_size $asm_coverage --nano-hq reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
     FLYE_EXIT_CODE=\$?
@@ -92,7 +91,7 @@ process deNovo {
         mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
         bgzip "${meta.alias}.draft_assembly.fasta"
     else
-        # flye failed --> check the log to see if low coverage caused the failure
+        # flye failed --> check the log to check why
         edge_cov=\$(
             grep -oP 'Mean edge coverage: \\K\\d+' output/flye.log \
             || echo $FLYE_MIN_COVERAGE_THRESHOLD
@@ -107,7 +106,10 @@ process deNovo {
         ]]; then
             echo -n "Caught Flye failure due to low coverage (either mean edge cov. or "
             echo "overlap-based cov. were below $FLYE_MIN_COVERAGE_THRESHOLD)".
-            LOW_COV_FAIL=1
+            COV_FAIL=1
+        elif grep -q "No disjointigs were assembled" output/flye.log; then
+            echo -n "Caught Flye failure due to disjointig assembly."
+            COV_FAIL=2
         else
             # exit a subshell with error so that the process fails
             ( exit \$FLYE_EXIT_CODE )
@@ -564,8 +566,7 @@ workflow calling_pipeline {
             input_reads.reads | map { meta, reads -> [ meta, "complete" ] }
             | mix (input_reads.no_reads | map { meta, reads -> [ meta, "not-met" ] } )
         )
-
-
+        
         sample_ids = reads.map { meta, reads, stats -> meta.alias }
         metadata = reads.map { meta, reads, stats -> meta } | toList()
         definitions = projectDir.resolve("./output_definition.json").toString()
@@ -580,6 +581,8 @@ workflow calling_pipeline {
             deNovo.out.failed.map { meta, failed ->
                 if (failed == "1") {
                     log.warn "Flye failed for sample '$meta.alias' due to low coverage."
+                } else if (failed == "2"){
+                    log.warn "Flye failed for sample '$meta.alias' as no disjointigs were assembled."
                 }
             }
 
@@ -587,7 +590,6 @@ workflow calling_pipeline {
             failed_samples = input_reads.no_reads.mix(
                 deNovo.out.failed | filter { meta, failed -> failed != "0"}
             ) | map { meta, field -> [ meta, "not-met" ] }
-            println(failed_samples.view())
             named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
             // Nextflow might be run in strict mode (e.g. in CI) which prevents `join`
             // from dropping non-matching entries. We have to use `remainder: true` and
