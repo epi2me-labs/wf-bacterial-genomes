@@ -26,8 +26,8 @@
                     "type": "boolean",
                     "default": false,   
                     "title": "Reference-based assembly",
-                    "help_text": "By default de-novo assembly will be performed with Flye. Enable this to instead perform a reference-based consensus. A reference must be provided.",
-                    "description": "Enable reference guided assembly instead of de-novo assembly."
+                    "help_text": "By default de novo assembly will be performed with Flye. Enable this to instead perform a reference-based consensus. A reference must be provided.",
+                    "description": "Enable reference guided assembly instead of de novo assembly."
                 },
                 "reference": {
                     "type": "string",
@@ -218,11 +218,23 @@
                     "description": "Command-line arguments for prokka",
                     "help_text": "[Command line arguments](https://github.com/tseemann/prokka#command-line-options) which can be used to alter prokka output annotation files."
                 },
+                "flye_genome_size": {
+                    "type": "integer",
+                    "Title": "Estimated genome size",
+                    "description": "Estimated genome size for de novo assembly in non-SI prefix format (e.g 5000000 for 5 Mb genome)",
+                    "help_text": "This setting is used in conjunction with `flye_asm_coverage` to subsample the reads used in the initial disjointig step only; all reads are used in subsequent steps. The values in the two parameters are used to calculate a target yield used to subsample the longest reads in the dataset, see [Flye docs](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) for more information. *Note* For runs with mixed genome sizes, preference the larger genome size."
+                },
+                "flye_asm_coverage": {
+                    "type": "integer",
+                    "Title": "Target coverage for assembly subsampling",
+                    "description": "Target coverage to use for subsampling in de novo assembly",
+                    "help_text": "This setting is used in conjunction with `flye_genome_size` to subsample the reads used in the initial disjointig step only; all reads are used in subsequent steps. The values in the two parameters are used to calculate a target yield used to subsample the longest reads in the dataset, see [Flye docs](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) for more information."
+                },
                 "flye_opts": {
                     "type": "string",
                     "Title": "Additional flye options",
                     "description": "Command-line arguments for flye",
-                    "help_text": "[Command line arguments](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) which can be used to alter the de-novo assembly process."
+                    "help_text": "[Command line arguments](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) which can be used to alter the de novo assembly process. Enter the command as quoted string (e.g '--meta --iterations 2'). Flye's `--genome-size` and `--asm-coverage` parameters can be set directly in the workflow with `--flye_genome_size` and `--flye_asm_coverage`, respectively."
                 },
                 "medaka_consensus_model": {
                     "type": "string",
@@ -236,6 +248,14 @@
                     "description": "The name of a Medaka variant model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka variant model. You can override this by providing a model with this option instead."
                 }
+            },
+            "dependencies": {
+                "flye_genome_size": [
+                    "flye_asm_coverage"
+                ],
+                "flye_asm_coverage": [
+                    "flye_genome_size"
+                ]
             }
         },
         "misc": {

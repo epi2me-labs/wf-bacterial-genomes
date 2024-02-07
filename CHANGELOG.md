@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Sample results aggregated into `results.json`
+- `flye_genome_size` and `flye_asm_coverage` parameters for controlling the initial downsampling step before the de novo assembly
+- De novo assembly mode uses `--nano-hq` rather than `--nano-raw`
+
 ### Changed
 - Some formatting in github issue template.
-- De novo assembly mode uses `--nano-hq` rather than `--nano-raw`
+- Retry and memory bump if de novo assembly fails first time
 
 ## [v1.0.2]
 ### Added
@@ -25,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.0.0]
 ### Added
 - Cloud support for the workflow within the EPI2ME Application.
+
 ### Changed
 - Documentation
 
@@ -32,8 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - MacOS ARM64 support
 - New parameter `--flye_opts` for passing additional arguments to `flye`.
+
 ### Changed
 - Clarify docker is default in README
+
 ### Fixed
 - De novo assembly failing due to low coverage in some situations.
 
@@ -47,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.3.2]
 ### Fixed
 - Edge case where medaka variant output is unsorted and causes medaka annotate to exit
+
 ### Changed
 - Bumped minimum required Nextflow version to 23.04.2.
 - Now uses Medaka v1.8.2 with updated models.

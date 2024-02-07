@@ -64,7 +64,9 @@ process coverStats {
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
-    memory "16 GB"
+    memory { task.attempt == 1 ? "15 GB" : "31 GB" }
+    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
+    maxRetries 1
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
@@ -77,10 +79,12 @@ process deNovo {
     // flye may fail due to low coverage; in this case we don't want to cause the whole
     // workflow to crash --> exit with `0` and don't emit output files
     def flye_opts = params.flye_opts ?: ""
+    def genome_size = params.flye_genome_size ? "--genome-size " + params.flye_genome_size : ""
+    def asm_coverage = params.flye_asm_coverage ? "--asm-coverage " + params.flye_asm_coverage : ""
     """
     LOW_COV_FAIL=0
     FLYE_EXIT_CODE=0
-    flye $flye_opts --nano-hq reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
+    flye $flye_opts $genome_size $asm_coverage --nano-hq reads.fastq.gz --out-dir output --threads "${task.cpus}" || \
     FLYE_EXIT_CODE=\$?
 
     if [[ \$FLYE_EXIT_CODE -eq 0 ]]; then
