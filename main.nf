@@ -167,7 +167,10 @@ process medakaNetwork {
 
     label "medaka"
     cpus 2
-    memory "8 GB"
+    // medaka rarely uses more than 8 GB, but sometimes it does happen
+    memory { task.attempt == 1 ? "8 GB" : "15 GB" }
+    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
+    maxRetries 1
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
@@ -189,7 +192,10 @@ process medakaVariantHdf {
 
     label "medaka"
     cpus 2
-    memory "8 GB"
+    // medaka rarely uses more than 8 GB, but sometimes it does happen
+    memory { task.attempt == 1 ? "8 GB" : "15 GB" }
+    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
+    maxRetries 1
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
     output:
@@ -267,7 +273,7 @@ process runProkka {
 process prokkaVersion {
     label "prokka"
     cpus 1
-    memory "250 MB"
+    memory "2 GB"
     output:
         path "prokka_version.txt"
     """
@@ -279,7 +285,7 @@ process prokkaVersion {
 process medakaVersion {
     label "medaka"
     cpus 1
-    memory "250 MB"
+    memory "2 GB"
     input:
         path "input_versions.txt"
     output:
@@ -293,7 +299,7 @@ process medakaVersion {
 process mlstVersion {
     label "mlst"
     cpus 1
-    memory "250 MB"
+    memory "2 GB"
     input:
         path "input_version.txt"
     output:
@@ -309,7 +315,7 @@ process mlstVersion {
 process getVersions {
     label "wfbacterialgenomes"
     cpus 1
-    memory "500 MB"
+    memory "2 GB"
     input:
         path "input_versions.txt"
     output:
@@ -328,7 +334,7 @@ process getVersions {
 process getParams {
     label "wfbacterialgenomes"
     cpus 1
-    memory "500 MB"
+    memory "2 GB"
     output:
         path "params.json"
     script:
@@ -368,7 +374,7 @@ process collect_results {
 process createRunModel {
     label "wfbacterialgenomes"
     cpus 1
-    memory "2 GB"
+    memory "15 GB"
     input:
         path "sample_results/*"
         val metadata
@@ -388,7 +394,7 @@ process createRunModel {
 process makeReport {
     label "wfbacterialgenomes"
     cpus 1
-    memory "8 GB"
+    memory "15 GB"
     input:
         path "versions/*"
         path "params.json"
@@ -428,7 +434,7 @@ process makeReport {
 process makePerSampleReports {
     label "wfbacterialgenomes"
     cpus 1
-    memory "1 GB"
+    memory "15 GB"
     input:
         path "versions.txt"
         path "params.json"
@@ -480,7 +486,7 @@ process output {
 process lookup_medaka_consensus_model {
     label "wfbacterialgenomes"
     cpus 1
-    memory "500 MB"
+    memory "2 GB"
     input:
         path("lookup_table")
         val basecall_model
@@ -497,7 +503,7 @@ process lookup_medaka_consensus_model {
 process lookup_medaka_variant_model {
     label "wfbacterialgenomes"
     cpus 1
-    memory "500 MB"
+    memory "2 GB"
     input:
         path("lookup_table")
         val basecall_model
