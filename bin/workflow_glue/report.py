@@ -84,7 +84,7 @@ def get_flye_stats(sample_names, flye_dir, flye_suffix):
     return flye_out, samples_with_missing_files
 
 
-def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode):
+def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, logger):
     """Collect files required for the report per sample and make sure they exist."""
     sample_files = {}
     subdirs_and_suffixes = {
@@ -108,13 +108,23 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode):
                 file_type in ("total_depth", "fwd_depth", "rev_depth")
                 or (file_type == "variants" and not denovo_mode)
                 or (file_type == "prokka" and prokka_mode)
-                or (file_type in ("resfinder", "mlst") and isolates_mode)
             ):
                 if not os.path.exists(file):
                     raise ValueError(
                         f"Required file '{file_type}' missing "
                         f"for sample '{sample_name}'."
                     )
+            # these may not be produced as errorStrategy is set to "ignore"
+            elif (
+                file_type in ("resfinder", "mlst")
+                and isolates_mode
+            ):
+                if not os.path.exists(file):
+                    logger.error(
+                        f"Isolates file for '{file_type}' missing "
+                        f"for sample '{sample_name}' - Check status of analysis."
+                        )
+                    file = None
             else:
                 # this covers the cases when files are not needed (e.g. `variants` when
                 # doing a de-novo assembly)
@@ -262,7 +272,7 @@ def get_indel_length_histogram(indel_lengths):
     return p
 
 
-def create_report(args):
+def create_report(args, logger):
     """Create and populate Labs report."""
     report = labs.LabsReport(
         "Bacterial Genomes Summary Report",
@@ -325,7 +335,9 @@ def create_report(args):
 
     # Gather stats files for each sample (will be used by the various report sections
     # below)
-    sample_files = gather_sample_files(samples, args.denovo, args.prokka, args.isolates)
+    sample_files = gather_sample_files(
+        samples, args.denovo, args.prokka, args.isolates, logger
+        )
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(
@@ -513,7 +525,7 @@ def create_report(args):
 def main(args):
     """Run the entry point."""
     logger = get_named_logger("Report")
-    report = create_report(args)
+    report = create_report(args, logger)
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
 
