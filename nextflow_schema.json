@@ -72,6 +72,13 @@
                     "title": "Analyse unclassified reads",
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
+                },
+                "client_fields": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "A JSON file of key value pairs to display on the report.",
+                    "help_text": "This is used to populate a table of additional information (for example, about upstream components of an assay) to the workflow report.",
+                    "hidden": true
                 }
             },
             "allOf": [
@@ -131,21 +138,6 @@
                 "sample": {
                     "type": "string",
                     "description": "A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files."
-                }
-            }
-        },
-        "output": {
-            "title": "Output Options",
-            "type": "object",
-            "fa_icon": "fas fa-arrow-left",
-            "description": "Parameters for saving and naming workflow outputs.",
-            "properties": {
-                "out_dir": {
-                    "type": "string",
-                    "title": "Output directory",
-                    "default": "output",
-                    "format": "directory-path",
-                    "description": "Directory for output of all workflow results."
                 }
             }
         },
@@ -256,6 +248,21 @@
                 "flye_asm_coverage": [
                     "flye_genome_size"
                 ]
+            }
+        },
+        "output": {
+            "title": "Output Options",
+            "type": "object",
+            "fa_icon": "fas fa-arrow-left",
+            "description": "Parameters for saving and naming workflow outputs.",
+            "properties": {
+                "out_dir": {
+                    "type": "string",
+                    "title": "Output directory",
+                    "default": "output",
+                    "format": "directory-path",
+                    "description": "Directory for output of all workflow results."
+                }
             }
         },
         "misc": {

@@ -47,7 +47,7 @@ docker-run:
         - if: $MATRIX_NAME == "amr"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-                  --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
+                  --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --client_fields test_data/client_fields.json"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantHdf,makePerSampleReports"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:

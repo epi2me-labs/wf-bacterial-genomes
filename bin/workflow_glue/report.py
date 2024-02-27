@@ -1,4 +1,5 @@
 """Create workflow report."""
+import json
 import os
 
 from dominate import tags as html_tags
@@ -519,6 +520,29 @@ def create_report(args, logger):
                                 columns=lambda col: col[0].upper() + col[1:]
                             )
                             DataTable.from_pandas(mlst_df, use_index=False)
+    client_fields = None
+    if args.client_fields:
+        with open(args.client_fields) as f:
+            try:
+                client_fields = json.load(f)
+            except json.decoder.JSONDecodeError:
+                error = "ERROR: Client info is not correctly formatted"
+
+        with report.add_section("Workflow Metadata", "Workflow Metadata"):
+            if client_fields:
+                df = pd.DataFrame.from_dict(
+                    client_fields, orient="index", columns=["Value"])
+                df.index.name = "Key"
+
+                # Examples from the client had lists as values so join lists
+                # for better display
+                df['Value'] = df.Value.apply(
+                    lambda x: ', '.join(
+                        [str(i) for i in x]) if isinstance(x, list) else x)
+
+                DataTable.from_pandas(df)
+            else:
+                html_tags.p(error)
     return report
 
 
@@ -559,4 +583,8 @@ def argparser():
     )
     parser.add_argument("--output", help="Report output filename")
     parser.add_argument("--sample_ids", nargs="+")
+    parser.add_argument(
+        "--client_fields", default=None, required=False,
+        help="A JSON file containing useful key/values for display")
+
     return parser
