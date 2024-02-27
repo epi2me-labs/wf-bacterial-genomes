@@ -410,6 +410,7 @@ process makeReport {
         path "flye_stats/*"
         path "resfinder/*"
         path "mlst/*"
+        path client_fields
     output:
         path "wf-bacterial-genomes-*.html"
     script:
@@ -418,6 +419,7 @@ process makeReport {
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         isolates = params.isolates as Boolean ? "--isolates" : ""
         samples = sample_ids.join(" ")
+        client_fields_args = client_fields.name == OPTIONAL_FILE.name ? "" : "--client_fields $client_fields"
     // NOTE: the script assumes the various subdirectories
     """
     workflow-glue report \
@@ -428,7 +430,8 @@ process makeReport {
     --versions versions \
     --params params.json \
     --output $report_name \
-    --sample_ids $samples
+    --sample_ids $samples \
+   $client_fields_args 
     """
 }
 
@@ -570,6 +573,7 @@ workflow calling_pipeline {
         sample_ids = reads.map { meta, reads, stats -> meta.alias }
         metadata = reads.map { meta, reads, stats -> meta } | toList()
         definitions = projectDir.resolve("./output_definition.json").toString()
+        client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : OPTIONAL_FILE
 
         if (params.reference_based_assembly && !params.reference){
             throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
@@ -767,7 +771,8 @@ workflow calling_pipeline {
             depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
-            mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE))
+            mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE),
+            client_fields)
         
         // Checkpoint 6 - report
         reporting_checkpoint = reportingCheckpoint(report)
