@@ -96,6 +96,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
         "prokka": ["prokka", "prokka.gff"],
         "resfinder": ["resfinder", "resfinder_results.txt"],
         "mlst": ["mlst", "mlst.json"],
+        "serotype": ["serotype", "serotype_results.tsv"]
     }
     for sample_name in sorted(sample_names):
         files = {}
@@ -116,8 +117,9 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
                         f"for sample '{sample_name}'."
                     )
             # these may not be produced as errorStrategy is set to "ignore"
+            # serotype only produced for salmonella isolates
             elif (
-                file_type in ("resfinder", "mlst")
+                file_type in ("resfinder", "mlst", "serotype")
                 and isolates_mode
             ):
                 if not os.path.exists(file):
@@ -175,10 +177,10 @@ def get_substitution_heatmap(substitution_counts):
     """Create heatmap illustrating proportions of substitution types.
 
     The counts are symmetrised by pairing (i.e. the heatmap will only have two rows:
-    'A', 'C').
+    "A", "C").
 
     :param substitution_counts: `pd.DataFrame` with columns `type` and `count`. `type`
-        should be of format 'X>Y'. This is produced as part of the `bcftools stats`
+        should be of format "X>Y". This is produced as part of the `bcftools stats`
         summary provided by `parser.parse_bcftools_stats_multi()` and can be
         looked up with `"ST"`.
     :returns: `ezcharts.plot.Plot` containing the heatmap.
@@ -520,6 +522,40 @@ def create_report(args, logger):
                                 columns=lambda col: col[0].upper() + col[1:]
                             )
                             DataTable.from_pandas(mlst_df, use_index=False)
+        serotype = False
+        # check if we got a serotype for at least one sample
+        for files in sample_files.values():
+            if files["serotype"]:
+                serotype = True
+                break
+        if serotype:
+            with report.add_section("Salmonella serotyping", "Sero."):
+                tabs = Tabs()
+                with tabs.add_dropdown_menu():
+                    for name, files in sample_files.items():
+                        with tabs.add_dropdown_tab(name):
+                            if files["serotype"] is None:
+                                """
+                                <b>
+                                Serotyping is only available for isolates
+                                identified as Salmonella.</b>
+                                """
+                            else:
+                                columns = [
+                                    "Predicted serotype",
+                                    "Predicted antigenic profile",
+                                    "Predicted identification",
+                                    "O antigen prediction",
+                                    "H1 antigen prediction(fliC)",
+                                    "H2 antigen prediction(fljB)",
+                                    "Note"
+                                ]
+                                sero_df = pd.read_csv(
+                                    files["serotype"], sep="\t",
+                                    usecols=columns
+                                )[columns]
+                                DataTable.from_pandas(sero_df, use_index=False)
+
     client_fields = None
     if args.client_fields:
         with open(args.client_fields) as f:

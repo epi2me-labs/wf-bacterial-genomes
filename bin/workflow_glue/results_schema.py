@@ -65,6 +65,18 @@ class SequenceTypeSchema(BaseModel):
     allele_variant: Optional[str] = None
 
 
+class Serotype(BaseModel):
+    """
+    Salmonella serotyping results
+    """
+
+    predicted_serotype: Optional[str] = None
+    predicted_antigenic_profile: Optional[str] = None
+    o_antigen_prediction: Optional[str] = None
+    h1_antigen_prediction: Optional[str] = None
+    h2_antigen_prediction: Optional[str] = None
+
+
 class Annotation(BaseModel):
     """
     Region of interest identified within assembly
@@ -154,6 +166,7 @@ class ResultsContents(BaseModel):
     antimicrobial_resistance: Optional[AntimicrobialResistance] = None
     assembly: Optional[Assembly] = None
     sequence_typing: Optional[MLST] = None
+    serotyping: Optional[Serotype] = None
     fastq: Optional[FastqStats] = None
 
 

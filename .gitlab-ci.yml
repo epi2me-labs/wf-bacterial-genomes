@@ -66,12 +66,13 @@ docker-run:
         - if: $MATRIX_NAME == "mixed-species"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq/ --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
+              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantHdf"
+        # serotyping
         - if: $MATRIX_NAME == "reference-iso"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
-              --fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 --isolates"
+              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/wf-bacterial-genomes-demo/isolates_fastq/barcode02 --reference_based_assembly --reference test_data/ref/salmonella_reference.fa.gz --threads 4 --chunk_size 100000 --isolates"
               NF_IGNORE_PROCESSES: "deNovo,runProkka"
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
@@ -80,3 +81,4 @@ release-prokka:
         AUX_IMAGE_NAME: "prokka"
         AUX_IMAGE_ENVFILE: "environment_prokka.yaml"
         AUX_IMAGE_TAG: "1.14.5"
+

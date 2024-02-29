@@ -410,6 +410,7 @@ process makeReport {
         path "flye_stats/*"
         path "resfinder/*"
         path "mlst/*"
+        path "serotype/*"
         path client_fields
     output:
         path "wf-bacterial-genomes-*.html"
@@ -449,14 +450,10 @@ process makePerSampleReports {
     script:
         String barcode = meta.barcode
         String denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
-        String prokka = params.run_prokka as Boolean ? "--prokka" : ""
-        String isolates = params.isolates as Boolean ? "--isolates" : ""
     // the script checks for presence / absence of the various files in `report_files`
     """
     workflow-glue per_sample_report \
-        $prokka \
         $denovo \
-        $isolates \
         --versions versions.txt \
         --params params.json \
         --output ${meta.alias}-isolate-report.html \
@@ -704,6 +701,7 @@ workflow calling_pipeline {
             mlst = run_isolates.mlst
             amr = run_isolates.amr
             amr_results = run_isolates.report_table
+            serotype = run_isolates.serotype
             amr_status = amr_results |
                 map { meta, resfinder -> [ meta, "complete" ] }
             
@@ -711,6 +709,7 @@ workflow calling_pipeline {
             amr = Channel.empty()
             amr_results = Channel.empty()
             mlst = Channel.empty()
+            serotype = Channel.empty()
             amr_status = reads |
                 map { meta, reads, stats -> [ meta, "not-met" ] }
         }
@@ -742,6 +741,7 @@ workflow calling_pipeline {
             | join(flye_info, remainder: true)
             | join(amr, remainder: true)
             | join(mlst, remainder: true)
+            | join(serotype, remainder: true)
             | map {
                 meta = it[0]
                 files = it[1..-1]
@@ -772,6 +772,7 @@ workflow calling_pipeline {
             flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
             mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE),
+            serotype.map{ meta, sero -> sero}.collect().ifEmpty(OPTIONAL_FILE),
             client_fields)
         
         // Checkpoint 6 - report
@@ -826,7 +827,8 @@ workflow calling_pipeline {
             mlst.map {meta, mlst -> mlst},
             workflow_params,
             software_versions,
-            run_model
+            run_model,
+            serotype.map { meta, sero -> sero }
         )
 
     emit:

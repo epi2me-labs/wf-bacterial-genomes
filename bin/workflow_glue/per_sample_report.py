@@ -289,7 +289,7 @@ def mlst_section(mlst_file):
             "Please check coverage of sample."
             ))
     col_names = mlst_df.columns
-    row_data = mlst_df.iloc[0, :].values
+    row_data = mlst_df.iloc[0].values
     # C apitalise all non-gene columns
     col_names = [x.capitalize() if i < 3 else x for i, x in enumerate(col_names)]
     # HTML section
@@ -297,6 +297,37 @@ def mlst_section(mlst_file):
     _table = html_tags.table(cls="table table-striped")
     _thead = html_tags.thead()
     _thead.add(html_tags.tr([html_tags.th(c) for c in col_names]))
+    _table.add(_thead)
+    _tr = html_tags.tr()
+    for cell in row_data:
+        _tr.add(html_tags.td(cell))
+    _table.add(_tr)
+    _div.add(_table)
+    return _div
+
+
+def serotype_section(serotype_file):
+    """Extract serotyping results."""
+    columns = [
+        "Predicted serotype",
+        "Predicted antigenic profile",
+        "Predicted identification",
+        "O antigen prediction",
+        "H1 antigen prediction(fliC)",
+        "H2 antigen prediction(fljB)",
+        "Note"
+    ]
+    # Check for file is made before section created in main()
+    sero_df = pd.read_csv(
+        serotype_file, sep="\t",
+        usecols=columns
+    )[columns]
+    # Done manually to allow non-scrollable table for PDF output
+    row_data = sero_df.iloc[0].values
+    _div = html_tags.div()
+    _table = html_tags.table(cls="table table-striped")
+    _thead = html_tags.thead()
+    _thead.add(html_tags.tr([html_tags.th(c) for c in columns]))
     _table.add(_thead)
     _tr = html_tags.tr()
     for cell in row_data:
@@ -346,6 +377,11 @@ def main(args):
             else:
                 html_tags.p("MLST was unable to be perfomed.")
 
+    if files["serotype"]:
+        with report.add_section("Salmonella serotyping", "Serotype"):
+            with html_tags.div(cls="row"):
+                serotype_section(files["serotype"])
+
     with report.add_section('Antimicrobial resistance prediction', 'AMR', True):
         with html_tags.div(cls="accordion", id="accordionTable"):
             if files["amr"]:
@@ -394,12 +430,6 @@ def argparser():
         "--denovo",
         action="store_true",
         help="Analysis performed de-novo assembly (instead of variant calling).",
-    )
-    parser.add_argument(
-        "--prokka", action="store_true", help="Prokka analysis was performed."
-    )
-    parser.add_argument(
-        "--isolates", action="store_true", help="Resfinder analysis was performed."
     )
     parser.add_argument(
         "--versions",

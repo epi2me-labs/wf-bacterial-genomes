@@ -41,7 +41,7 @@ process resfinder {
         tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
     script:
     """
-    gunzip -c -f input_genome.fasta.gz > input_genome.fasta
+    gunzip -c input_genome.fasta.gz > input_genome.fasta
 
     python -m resfinder \
         -o ${meta.alias}_resfinder_results \
@@ -83,6 +83,33 @@ process processResfinder {
         """
 }
 
+process serotyping {
+    label "seqsero2"
+    cpus 1
+    memory "7 GB"
+    errorStrategy 'ignore'
+    input: 
+        tuple val(meta), path("input_genome.fasta.gz"), val(species)
+    output:
+        tuple val(meta), path("${meta.alias}.serotype_results.tsv")
+    script:
+    """
+    gunzip -c input_genome.fasta.gz > input_genome.fasta
+
+    SeqSero2_package.py \
+    -m k \
+    -t '4' \
+    -i input_genome.fasta \
+    -p 1 \
+    -b 'mem' \
+    -d  output \
+    -n ${meta.alias}
+
+    cp -r output/SeqSero_results.tsv "${meta.alias}.serotype_results.tsv"
+    """
+}   
+
+
 workflow run_isolates {
    take:
       consensus
@@ -95,8 +122,14 @@ workflow run_isolates {
         resfinder_input = consensus.join(pointfinder_species)
         amr_results = resfinder(resfinder_input, resfinder_threshold, resfinder_coverage)
         processed = processResfinder(amr_results)
+
+        serotype = serotyping(resfinder_input
+            | filter { meta, fasta, species -> species == "salmonella" }
+        )
+        
    emit:
       amr = amr_results.map{meta, amr, species -> [meta, amr]}
       report_table = processed
       mlst = mlst_results
+      serotype = serotype
 }
