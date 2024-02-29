@@ -51,6 +51,8 @@ components:
           $ref: '#/components/schemas/Assembly'
         sequence_typing:
           $ref: '#/components/schemas/MLST'
+        serotyping:
+          $ref: '#/components/schemas/Serotype'
         fastq:
           $ref: '#/components/schemas/FastqStats'
 
@@ -142,7 +144,21 @@ components:
           type: string
         allele_variant:
           type: string
-    
+
+    Serotype:
+      type: object
+      description: Salmonella serotyping results
+      properties:
+        predicted_serotype:
+          type: string
+        predicted_antigenic_profile:
+          type: string
+        o_antigen_prediction:
+          type: string
+        h1_antigen_prediction:
+          type: string
+        h2_antigen_prediction:
+          type: string
 
     Assembly:
       type: object

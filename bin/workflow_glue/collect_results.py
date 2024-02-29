@@ -31,7 +31,8 @@ def gather_sample_files(alias, data_dir):
         "fastcat": os.path.join(data_dir, "fastcat_stats/per-read-stats.tsv.gz"),
         "len_hist": os.path.join(data_dir, "fastcat_stats/length.hist"),
         "qual_hist": os.path.join(data_dir, "fastcat_stats/quality.hist"),
-        "flye": os.path.join(data_dir, f"{alias}_flye_stats.tsv")
+        "flye": os.path.join(data_dir, f"{alias}_flye_stats.tsv"),
+        "serotype": os.path.join(data_dir, f"{alias}.serotype_results.tsv")
     }
 
     # Return none if file does not exist
@@ -83,6 +84,20 @@ def parse_mlst(mlst_file):
     )
 
     return result
+
+
+def parse_serotyping(serotype_file):
+    """Extract serotyping information from SeqSero2."""
+    sero_df = pd.read_csv(serotype_file, sep="\t")
+    # columns always present in seqsero output
+    serotype = wf.Serotype(
+        predicted_serotype=sero_df["Predicted serotype"].squeeze(),
+        predicted_antigenic_profile=sero_df["Predicted antigenic profile"].squeeze(),
+        o_antigen_predicition=sero_df["O antigen prediction"].squeeze(),
+        h1_antigen_prediction=sero_df["H1 antigen prediction(fliC)"].squeeze(),
+        h2_antigen_prediction=sero_df["H2 antigen prediction(fljB)"].squeeze()
+    )
+    return serotype
 
 
 def contig_stats(total_coverage):
@@ -187,6 +202,10 @@ def main(args):
     if files["amr"]:
         antimicrobial_details = antimicrobial_stats(files["amr"])
 
+    serotype = {}
+    if files["serotype"]:
+        serotype = parse_serotyping(files["serotype"])
+
     fastcat = {}
     if files["len_hist"] and files["qual_hist"]:
         fastcat = fastcat_stats(files["len_hist"], files["qual_hist"])
@@ -195,6 +214,7 @@ def main(args):
         antimicrobial_resistance=antimicrobial_details,
         assembly=assembly,
         sequence_typing=sequence_type,
+        serotyping=serotype,
         fastq=fastcat
     )
 
