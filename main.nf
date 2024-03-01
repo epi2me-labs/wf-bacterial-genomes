@@ -847,6 +847,7 @@ workflow {
       checkpoints_file.delete()
     }
 
+    fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length " : ""
 
     samples = fastq_ingress([
         "input":params.fastq,
@@ -854,7 +855,7 @@ workflow {
         "sample_sheet":params.sample_sheet,
         "analyse_unclassified":params.analyse_unclassified,
         "stats": params.wf.fastcat_stats,
-        "fastcat_extra_args": ""])
+        "fastcat_extra_args": fastcat_extra_args])
 
     reference = params.reference
     results = calling_pipeline(samples, reference)
