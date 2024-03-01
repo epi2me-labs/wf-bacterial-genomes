@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `client_fields` parameter to allow input of a JSON file of key value pairs to display on output reports.
+- `min_read_length` parameter to remove reads below specified length (default 1000bp) from downstream analysis, to improve de novo assembly process
 - Salmonella serotyping with `SeqSero2`
 
 ## [v1.1.1]
