@@ -105,7 +105,7 @@ process serotyping {
     -d  output \
     -n ${meta.alias}
 
-    cp -r output/SeqSero_results.tsv "${meta.alias}.serotype_results.tsv"
+    cp -r output/SeqSero_result.tsv "${meta.alias}.serotype_results.tsv"
     """
 }   
 
