@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.2.0]
 ### Added
 - `client_fields` parameter to allow input of a JSON file of key value pairs to display on output reports.
 - `min_read_length` parameter to remove reads below specified length (default 1000bp) from downstream analysis, to improve de novo assembly process
 - Salmonella serotyping with `SeqSero2`
+
+### Fixed
+- Duplicate entries in `Pointfinder` processing
 
 ## [v1.1.1]
 ### Fixed
