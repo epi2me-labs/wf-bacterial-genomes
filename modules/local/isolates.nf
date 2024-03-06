@@ -16,7 +16,7 @@ process mlstSearch {
 process getPointfinderSpecies {
     label "wfbacterialgenomes"
     cpus 1
-    memory "500 MB"
+    memory "2 GB"
     input:
         tuple val(meta), path("${meta.alias}.mlst.json")
     output:
@@ -41,7 +41,8 @@ process resfinder {
         tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
     script:
     """
-    gunzip -c input_genome.fasta.gz > input_genome.fasta
+    # sed added to remove basecaller config from fasta +  resfinder table 
+    gunzip -c input_genome.fasta.gz | sed '/^>/ s/ .*//' > input_genome.fasta
 
     python -m resfinder \
         -o ${meta.alias}_resfinder_results \
@@ -61,7 +62,7 @@ process processResfinder {
     // Disinfection not processed yet (CW-2106)
     label "wfbacterialgenomes"
     cpus 2
-    memory "500 MB"
+    memory "2 GB"
     input:
         tuple val(meta), path("${meta.alias}_resfinder_results"), val(species)
     output:
@@ -86,7 +87,7 @@ process processResfinder {
 process serotyping {
     label "seqsero2"
     cpus 1
-    memory "7 GB"
+    memory "3 GB"
     errorStrategy 'ignore'
     input: 
         tuple val(meta), path("input_genome.fasta.gz"), val(species)

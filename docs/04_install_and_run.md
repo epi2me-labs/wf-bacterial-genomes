@@ -27,8 +27,6 @@ The workflow can be run with the demo data using:
 nextflow run epi2me-labs/wf-bacterial-genomes \
     --fastq wf-bacterial-genomes-demo/isolates_fastq \
     --isolates \
-    --reference_based_assembly \
-    --reference wf-bacterial-genomes-demo/ref/ref.fasta.gz \
     --sample_sheet wf-bacterial-genomes-demo/isolates_sample_sheet.csv \
     -profile standard
 ```

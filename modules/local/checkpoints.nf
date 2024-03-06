@@ -48,7 +48,7 @@ process accumulateCheckpoints {
 process ingressCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), val(status)
   output:
@@ -75,7 +75,7 @@ process ingressCheckpoint {
 process alignmentCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), path(bam, stageAs: "bam/*"), path(bai, stageAs: "bai/*")
   output:
@@ -101,7 +101,7 @@ process alignmentCheckpoint {
 process assemblyCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), path(fasta)
   output:
@@ -127,7 +127,7 @@ process assemblyCheckpoint {
 process variantCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), val(status)
   output:
@@ -153,7 +153,7 @@ process variantCheckpoint {
 process amrCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), val(status)
   output:
@@ -178,7 +178,7 @@ process amrCheckpoint {
 process annotationCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), val(status)
   output:
@@ -203,7 +203,7 @@ process annotationCheckpoint {
 process perSampleReportingCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     tuple val(meta), val(status)
   output:
@@ -227,7 +227,7 @@ process perSampleReportingCheckpoint {
 process reportingCheckpoint {
   label "wf_common"
   cpus 1
-  memory "250 MB"
+  memory "1 GB"
   input:
     path report
   output:
