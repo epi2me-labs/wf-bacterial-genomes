@@ -42,11 +42,17 @@
 | medaka_variant_model | string | The name of a Medaka variant model to use. This name will override the model automatically chosen based on the provided basecaller configuration. | The workflow will attempt to map the basecalling model used to a suitable Medaka variant model. You can override this by providing a model with this option instead. |  |
 
 
+### Output Options
+
+| Nextflow parameter name  | Type | Description | Help | Default |
+|--------------------------|------|-------------|------|---------|
+| out_dir | string | Directory for output of all workflow results. |  | output |
+
+
 ### Miscellaneous Options
 
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
 | threads | integer | Number of CPU threads. | Provided to alignment, flye assembly and prokka steps to improve performance. | 3 |
-| disable_ping | boolean | Enable to prevent sending a workflow ping. |  | False |
 
 
