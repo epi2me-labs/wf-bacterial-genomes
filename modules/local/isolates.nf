@@ -32,7 +32,6 @@ process resfinder {
     label "amr"
     cpus 2
     memory "2 GB"
-    errorStrategy 'ignore'
     input:
         tuple val(meta), path("input_genome.fasta.gz"), val(species)
         val resfinder_threshold
@@ -53,8 +52,8 @@ process resfinder {
         -s "${species}" \
         --point \
         -ifa input_genome.fasta \
-        --nanopore \
-        --disinfectant || exit 0
+        --disinfectant \
+        --nanopore
     """
 }
 
