@@ -154,13 +154,6 @@
                     "description": "Run the Isolates pipeline on the assembly results if set to True.",
                     "help_text": "Isolates mode adds further analysis options to the workflow such as multi-locus sequence typing and antimicrobial resistance calling, as well as producing single reports for each sample in the run."
                 },
-                "resfinder_version": {
-                    "type": "string",
-                    "title": "Resfinder version",
-                    "default": "4.3.2",
-                    "description": "ResFinder version to use.",
-                    "help_text": "ResFinder is the tool used to check for antimicrobial resistance genes in isolates of bacteria."
-                },
                 "resfinder_threshold": {
                     "type": "string",
                     "title": "Resfinder gene identity threshold",
@@ -174,12 +167,6 @@
                     "default": "0.6",
                     "description": "Minimum coverage (breadth-of) threshold required to report a match between a gene in the ResFinder database and the assembly. Valid interval: 0.00-1.00",
                     "help_text": "The amount of an AMR gene that has to be present within the assembly as compared to the reference in the ResFinder database."
-                },
-                "mlst_version": {
-                    "type": "string",
-                    "title": "Multi-locus sequence typing (MLST) version",
-                    "default": "2.23.0",
-                    "description": "MLST version to use."
                 }
             }
         },

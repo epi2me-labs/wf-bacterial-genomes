@@ -64,14 +64,12 @@ def read_pointfinder_xml(xml_file):
 
 def extract_point_bp(subject, mutation):
     """Extract mutation from pointfinder output."""
-    # subject = "pncA-promoter-size-107bp"
+    # subject = "pncA-promoter-size-107bp.xml"
+    # resfinder 4.4.3 size not in table so subject is now xml
     # mutation = "p.H57D"
     mutation_bp = int(re.search(r'\d+', mutation).group())*3
     if ("promoter" in subject):
-        bp_re = re.compile("[0-9]*bp")
-        prom_split = subject.split("-")
-        prom_size = int([x for x in prom_split if bp_re.match(
-            x) is not None][0].replace("bp", ""))
+        prom_size = int(re.search(r"(\d+)bp.xml$", subject).groups()[0])
         # The noted mutation is from the start of the CDS, if a promoter is
         # present then this should take that into account
         final_bp = prom_size + mutation_bp
@@ -95,8 +93,12 @@ def get_global_mutation_position(q_start, q_end, s_start, s_end, loc_pos):
 def convert_pointfinder_row(database_location, row):
     """Convert point finder row."""
     # construct path to xml file
-    xml_path = os.path.join(
-        database_location, "out_"+row['Sequence'] + ".xml")
+    (xml_fname,) = [
+        f
+        for f in os.listdir(database_location)
+        if f.startswith(f"out_{row['Sequence']}")
+    ]
+    xml_path = os.path.join(database_location, xml_fname)
     pointfinder_blast_data = read_pointfinder_xml(xml_path)
     pointfinder_blast_data['Subject'] = row['Sequence']
     pointfinder_blast_data['Mutation'] = row['Mutation']
@@ -104,7 +106,7 @@ def convert_pointfinder_row(database_location, row):
     # with mutations in promoter regions
 
     pointfinder_blast_data['Local_loc_bp'] = pointfinder_blast_data.apply(
-        lambda row: extract_point_bp(row["Subject"], row["Mutation"]), axis=1
+        lambda row: extract_point_bp(xml_path, row["Mutation"]), axis=1
         )
     # Find start and end of mutation on query depending on orientation of gene
     pointfinder_blast_data[
