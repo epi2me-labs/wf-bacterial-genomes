@@ -63,5 +63,12 @@ MLST is a common technique used to help characterise your bacterial isolate, by 
 The species/genera of your assembly will be detected from the results of the MLST step and SNV will be selected automatically if applicable.
 
 
-
+#### iii. Salmonella serotyping
+Samples identified as salmonella from the MLST step will undergo serotyping and antigenic profile prediction analysis using [SeqSero2](https://github.com/denglab/SeqSero2). The analysis will give predictions on:
+* Serotype
+* Antigenic profile
+* Sub-species identification
+* O antigen
+* H1 antigen (fliC)
+* H2 antigen (fljB)
 
