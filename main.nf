@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 nextflow.preview.recursion=true
 import groovy.json.JsonBuilder
 
-include { fastq_ingress } from './lib/ingress'
+include { fastq_ingress; xam_ingress  } from './lib/ingress'
 include { run_isolates } from './modules/local/isolates'
 
 include {
@@ -849,14 +849,26 @@ workflow {
 
     fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length " : ""
 
-    samples = fastq_ingress([
-        "input":params.fastq,
-        "sample":params.sample,
-        "sample_sheet":params.sample_sheet,
-        "analyse_unclassified":params.analyse_unclassified,
-        "stats": params.wf.fastcat_stats,
-        "fastcat_extra_args": fastcat_extra_args])
+    if (params.fastq){
+         samples = fastq_ingress([
+            "input":params.fastq,
+            "sample":params.sample,
+            "sample_sheet":params.sample_sheet,
+            "analyse_unclassified":params.analyse_unclassified,
+            "stats": params.wf.fastcat_stats,
+            "fastcat_extra_args": fastcat_extra_args
+        ])
+    } else {
+        samples = xam_ingress([
+            "input":params.bam,
+            "stats":true,
+            "sample_sheet":params.sample_sheet,
+            "return_fastq":true,
+            "fastcat_extra_args": fastcat_extra_args
+        ])
+    } 
 
+   
     reference = params.reference
     results = calling_pipeline(samples, reference)
     output(results.all_out)
