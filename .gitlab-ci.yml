@@ -13,7 +13,7 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr, barcode04, mixed-species, reference-iso, de-novo-advanced_options]
+            - MATRIX_NAME: [de-novo, amr, barcode04, mixed-species, reference-iso, de-novo-advanced_options, de-novo-bam]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -27,6 +27,11 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
                   --fastq test_data/fastq --threads 3 --chunk_size 100000"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
+        - if: $MATRIX_NAME == "de-novo-bam"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
+                  --bam test_data/bam --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
         - if: $MATRIX_NAME == "de-novo-advanced_options"
           variables:
