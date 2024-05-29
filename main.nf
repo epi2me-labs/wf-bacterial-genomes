@@ -403,6 +403,7 @@ process makeReport {
         path "variants/*"
         val sample_ids
         path "prokka/*"
+        val sample_ids_with_stats
         path "per_read_stats/?.gz"
         path "fwd/*"
         path "rev/*"
@@ -420,11 +421,14 @@ process makeReport {
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         isolates = params.isolates as Boolean ? "--isolates" : ""
         samples = sample_ids.join(" ")
+        sample_ids_with_stats_arg = sample_ids_with_stats ? \
+            "--sample_ids_with_stats ${sample_ids_with_stats.join(" ")}" : ""
         client_fields_args = client_fields.name == OPTIONAL_FILE.name ? "" : "--client_fields $client_fields"
     // NOTE: the script assumes the various subdirectories
     """
     workflow-glue report \
     --stats per_read_stats/* \
+    $sample_ids_with_stats_arg \
     $prokka \
     $denovo \
     $isolates \
@@ -757,15 +761,26 @@ workflow calling_pipeline {
             metadata
         )
 
+        // get the samples that have stats (to keep the aliases and stats in the same
+        // order for the report)
+        samples_with_stats = reads.map { meta, reads, stats_dir ->
+            if (stats_dir) {
+                [meta.alias, stats_dir.resolve('per-read-stats.tsv.gz')]
+            }
+        }
+        | multiMap { alias, stats ->
+            alias: alias
+            stats: stats
+        }
+
         report = makeReport(
             software_versions,
             workflow_params,
             variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
             prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
-            reads.map { meta, reads, stats_dir -> 
-                stats_dir ? stats_dir.resolve('per-read-stats.tsv.gz') : null
-            }.filter({!(null in it)}).toList(),
+            samples_with_stats.alias.toList(),
+            samples_with_stats.stats.toList(),
             depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
@@ -855,15 +870,17 @@ workflow {
             "sample":params.sample,
             "sample_sheet":params.sample_sheet,
             "analyse_unclassified":params.analyse_unclassified,
-            "stats": params.wf.fastcat_stats,
-            "fastcat_extra_args": fastcat_extra_args
+            "stats":true,
+            "per_read_stats":true,
+            "fastcat_extra_args":fastcat_extra_args
         ])
     } else {
         samples = xam_ingress([
             "input":params.bam,
-            "stats":true,
             "sample_sheet":params.sample_sheet,
             "return_fastq":true,
+            "stats":true,
+            "per_read_stats":true,
             "fastcat_extra_args": fastcat_extra_args
         ])
     } 
