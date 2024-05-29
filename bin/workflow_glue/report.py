@@ -286,8 +286,14 @@ def create_report(args, logger):
     samples = sorted(args.sample_ids)
 
     if args.stats:
+        sample_ids_with_stats = sorted(
+            zip(args.sample_ids_with_stats, args.stats), key=lambda x: x[0]
+        )
         with report.add_section("Read summary", "Read summary"):
-            fastcat.SeqSummary(args.stats)
+            fastcat.SeqSummary(
+                sample_names=tuple([x[0] for x in sample_ids_with_stats]),
+                seq_summary=tuple([x[1] for x in sample_ids_with_stats]),
+            )
 
     if not args.denovo:
         html_tags.p(
@@ -594,6 +600,11 @@ def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("report")
     parser.add_argument("--stats", nargs="*", help="Fastcat per-read stats file(s).")
+    parser.add_argument(
+        "--sample_ids_with_stats",
+        nargs="*",
+        help="Sample names in order of per-read stats files.",
+    )
     parser.add_argument(
         "--denovo",
         action="store_true",
