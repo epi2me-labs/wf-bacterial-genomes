@@ -36,6 +36,7 @@ the following command:
 ```
 nextflow pull epi2me-labs/wf-bacterial-genomes
 ```
+
 A demo dataset is provided for testing of the workflow.
 It can be downloaded and unpacked using the following commands:
 ```
@@ -50,5 +51,6 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 	--sample_sheet 'wf-bacterial-genomes-demo/isolates_sample_sheet.csv' \
 	-profile standard
 ```
+
 For further information about running a workflow on
 the command line see https://labs.epi2me.io/wfquickstart/
