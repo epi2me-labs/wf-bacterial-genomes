@@ -11,11 +11,11 @@ The [fastcat/bamstats](https://github.com/epi2me-labs/fastcat) tool is used to c
 
 #### ii. Polishing
 
-The draft assembly from flye is then polished using [Medaka](https://github.com/nanoporetech/medaka). This step will attempt to correct any errors that were introduced during the de-novo assembly process. 
+The draft assembly from flye is then polished using [medaka](https://github.com/nanoporetech/medaka). This step will attempt to correct any errors that were introduced during the de-novo assembly process. 
 
-The workflow selects the appropriate [Medaka models](https://github.com/nanoporetech/medaka#models) based on the basecaller configuration that was used to process the signal data.
-You can use the parameter `--basecaller_cfg` to provide this information (e.g. `dna_r10.4.1_e8.2_400bps_hac`).
-Alternatively, you can choose the [Medaka](https://github.com/nanoporetech/medaka) model directly with `--medaka_consensus_model`.
+The workflow selects the appropriate [medaka models](https://github.com/nanoporetech/medaka#models) based on the basecaller configuration that was used to process the signal data.
+Per default, the workflow will attempt to determine the basecaller model from the input data.
+When this fails (or when you wish to override the automatic selection), it can be provided with `--override_basecaller_cfg`.
 
 
 ### 2b. Variant calling mode
@@ -26,11 +26,7 @@ Reads are aligned against the provided reference with [mini_align](https://githu
 
 #### ii. Call variants
 
-After alignment, haploid variants are called with [Medaka](https://github.com/nanoporetech/medaka).
-
-The workflow selects the appropriate [Medaka models](https://github.com/nanoporetech/medaka#models) based on the basecaller configuration that was used to process the signal data.
-You can use the parameter `--basecaller_cfg` to provide this information (e.g. `dna_r10.4.1_e8.2_400bps_hac`).
-Alternatively, you can choose the [Medaka](https://github.com/nanoporetech/medaka) model directly with `--medaka_model`.
+After alignment, haploid variants are called with [medaka](https://github.com/nanoporetech/medaka) (see the Polishing section above for details on Medaka model selection).
 
 #### iii. Use the variants to generate a consensus
 

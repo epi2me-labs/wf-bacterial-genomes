@@ -6,6 +6,12 @@ import groovy.json.JsonBuilder
 
 include { fastq_ingress; xam_ingress  } from './lib/ingress'
 include { run_isolates } from './modules/local/isolates'
+include {
+    medakaHdf as medakaHdf_consensus;
+    medakaHdf as medakaHdf_variant;
+    medakaConsensus;
+    medakaVariant;
+} from './modules/local/medaka'
 
 include {
     accumulateCheckpoints;
@@ -159,98 +165,6 @@ process splitRegions {
             outfile.write("${meta.alias}" + '&split!' + str(reg) + "\\n")
     """
 }
-
-// TODO: in a single GPU environment it would be better just
-//       to use a single process for the whole bam file. Need
-//       to read up on conditional channels
-
-process medakaNetwork {
-    // run medaka consensus for each region
-
-    label "medaka"
-    cpus 2
-    // medaka rarely uses more than 8 GB, but sometimes it does happen
-    memory { task.attempt == 1 ? "8 GB" : "15 GB" }
-    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
-    maxRetries 1
-    input:
-        tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
-    output:
-        tuple val(meta), path("*consensus_probs.hdf")
-    script:
-        def model = medaka_model
-    """
-    medaka --version
-    echo ${model}
-    echo ${medaka_model}
-    medaka consensus align.bam "${meta.alias}.consensus_probs.hdf" \
-        --threads 2 --regions "${reg}" --model ${model}
-    """
-}
-
-
-process medakaVariantHdf {
-    // run medaka consensus for each region
-
-    label "medaka"
-    cpus 2
-    // medaka rarely uses more than 8 GB, but sometimes it does happen
-    memory { task.attempt == 1 ? "8 GB" : "15 GB" }
-    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
-    maxRetries 1
-    input:
-        tuple val(meta), path("align.bam"), path("align.bam.bai"), val(reg), val(medaka_model)
-    output:
-        tuple val(meta), path("*consensus_probs.hdf")
-    script:
-        def model = medaka_model
-    """
-    medaka --version
-    echo ${model}
-    echo ${medaka_model}
-    medaka consensus align.bam "${meta.alias}.consensus_probs.hdf" \
-        --threads 2 --regions "${reg}" --model ${model}
-    """
-}
-
-
-process medakaVariant {
-    label "medaka"
-    cpus 1
-    memory "4 GB"
-    input:
-        tuple val(meta), path("consensus_probs*.hdf"),  path("align.bam"), path("align.bam.bai"), path("ref.fasta.gz")
-    output:
-        tuple val(meta), path("${meta.alias}.medaka.vcf.gz"), emit: variants
-        tuple val(meta), path("${meta.alias}.variants.stats"), emit: variant_stats
-    // note: extension on ref.fasta.gz might not be accurate but shouldn't (?) cause issues.
-    //       Also the first step may create an index if not already existing so the alternative
-    //       reference.* will break
-    """
-    medaka variant ref.fasta.gz consensus_probs*.hdf vanilla.vcf
-    bcftools sort vanilla.vcf > vanilla.sorted.vcf
-    medaka tools annotate vanilla.sorted.vcf ref.fasta.gz align.bam "${meta.alias}.medaka.vcf"
-    bgzip -i "${meta.alias}.medaka.vcf"
-    bcftools stats  "${meta.alias}.medaka.vcf.gz" > "${meta.alias}.variants.stats"
-    """
-}
-
-
-process medakaConsensus {
-    label "medaka"
-    cpus 1
-    memory "4 GB"
-    input:
-        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("consensus_probs*.hdf"), path("reference*")
-    output:
-        tuple val(meta), path("${meta.alias}.medaka.fasta.gz")
-    shell:
-    """
-    medaka stitch --threads $task.cpus consensus_probs*.hdf reference* "${meta.alias}.medaka.fasta"
-    add_model_to_fasta.sh ${params.basecaller_cfg} "${meta.alias}.medaka.fasta"
-    """
-}
-
 
 process runProkka {
     // run prokka in a basic way on the consensus sequence
@@ -488,41 +402,6 @@ process output {
     """
 }
 
-
-process lookup_medaka_consensus_model {
-    label "wfbacterialgenomes"
-    cpus 1
-    memory "2 GB"
-    input:
-        path("lookup_table")
-        val basecall_model
-    output:
-        stdout
-    shell:
-    '''
-    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_consensus")
-    echo $medaka_model
-    '''
-}
-
-
-process lookup_medaka_variant_model {
-    label "wfbacterialgenomes"
-    cpus 1
-    memory "2 GB"
-    input:
-        path("lookup_table")
-        val basecall_model
-    output:
-        stdout
-    shell:
-    '''
-    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_variant")
-    echo $medaka_model
-    '''
-}
-
-
 // Creates a new directory named after the sample alias and moves the fastcat results
 // into it.
 process collectFastqIngressResultsInDir {
@@ -576,6 +455,21 @@ workflow calling_pipeline {
         definitions = projectDir.resolve("./output_definition.json").toString()
         client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : OPTIONAL_FILE
 
+        // get basecall models: we use `params.override_basecaller_cfg` if present;
+        // otherwise use `meta.basecall_models[0]` (there should only be one value in
+        // the list because we're running ingress with `allow_multiple_basecall_models:
+        // false`; note that `[0]` on an empty list returns `null`)
+        basecall_models = reads.map { meta, reads, stats ->
+            String basecall_model = \
+                params.override_basecaller_cfg ?: meta.basecall_models[0]
+            if (!basecall_model) {
+                error "Found no basecall model information in the input data for " + \
+                    "sample '$meta.alias'. Please provide it with the " + \
+                    "`--override_basecaller_cfg` parameter."
+            }
+            [meta, basecall_model]
+        }
+
         if (params.reference_based_assembly && !params.reference){
             throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
         }
@@ -627,30 +521,18 @@ workflow calling_pipeline {
             it -> return tuple(it.split(/&split!/)[0], it.split(/&split!/)[1])
         }
 
-        if(params.medaka_consensus_model) {
-            log.warn "Overriding Medaka Consensus model with ${params.medaka_consensus_model}."
-            medaka_consensus_model = Channel.fromList([params.medaka_consensus_model])
-        }
-        else {
-            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
-            medaka_consensus_model = lookup_medaka_consensus_model(lookup_table, params.basecaller_cfg)
-        }
-        if(params.medaka_variant_model) {
-            log.warn "Overriding Medaka Variant model with ${params.medaka_variant_model}."
-            medaka_variant_model = Channel.fromList([params.medaka_variant_model])
-        }
-        else {
-            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
-            medaka_variant_model = lookup_medaka_variant_model(lookup_table, params.basecaller_cfg)
-        }
-
         // medaka consensus
         named_alignments = alignments.map{ meta, bam, bai -> [meta.alias, meta, bam, bai] }
+        // use `sample_id` to combine here
         regions_bams = named_alignments.combine(named_regions, by: 0).map{it[1..-1]}
-        regions_model = regions_bams.combine(medaka_consensus_model)
-        hdfs = medakaNetwork(regions_model)
-        hdfs_grouped = alignments.combine(hdfs.groupTuple(), by: 0).join(named_refs)
-        consensus = medakaConsensus(hdfs_grouped)
+        regions_model = regions_bams.combine(basecall_models, by: 0)
+        // the `.combine`s below use the meta map (and not sample id)
+        consensus = medakaHdf_consensus(regions_model, "consensus")
+        | groupTuple
+        | combine(alignments, by: 0)
+        | combine(named_refs, by: 0)
+        | combine(basecall_models, by: 0)
+        | medakaConsensus
 
         // Checkpoint 2 - Assembly
         assembly_checkpoint = assemblyCheckpoint(consensus
@@ -659,17 +541,19 @@ workflow calling_pipeline {
 
         // medaka variants
         if (params.reference_based_assembly){
-            bam_model = regions_bams.combine(medaka_variant_model)
-            hdfs_variant = medakaVariantHdf(bam_model)
-            hdfs_grouped = hdfs_variant.groupTuple().combine(alignments, by: [0]).join(named_refs)
-            variant = medakaVariant(hdfs_grouped)
-            variants = variant.variant_stats
-            vcf_variant = variant.variants
+            medakaHdf_variant(regions_model, "variant")
+            | groupTuple
+            | combine(alignments, by: 0)
+            | combine(named_refs, by: 0)
+            | medakaVariant
+
+            vcf_stats = medakaVariant.out.variant_stats
+            vcf_variant = medakaVariant.out.variants
             vcf_status = vcf_variant
                 | map { meta, variants -> [ meta, "complete" ] }
 
         } else {
-            variants = Channel.empty()
+            vcf_stats = Channel.empty()
             vcf_variant = Channel.empty() 
             vcf_status = reads
                 | map { meta, reads , stats -> [ meta, "not-met" ] }
@@ -737,7 +621,7 @@ workflow calling_pipeline {
                 [meta, stats_dir ? stats_dir : null]
             }
             | join(vcf_variant, remainder: true)
-            | join(variants, remainder: true)
+            | join(vcf_stats, remainder: true)
             | join(prokka, remainder: true)
             | join(depth_stats.fwd, remainder: true)
             | join(depth_stats.rev, remainder: true)
@@ -776,7 +660,7 @@ workflow calling_pipeline {
         report = makeReport(
             software_versions,
             workflow_params,
-            variants.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
+            vcf_stats.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
             prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
             samples_with_stats.alias.toList(),
@@ -831,7 +715,7 @@ workflow calling_pipeline {
         // replace `null` with path to optional file
         | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
         | collectFastqIngressResultsInDir
-        all_out = variants.map{meta, stats -> stats}.concat(
+        all_out = vcf_stats.map{meta, stats -> stats}.concat(
             vcf_variant.map {meta, vcf -> vcf},
             consensus.map {meta, assembly -> assembly},
             report,
@@ -862,33 +746,41 @@ workflow {
       checkpoints_file.delete()
     }
 
-    fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length " : ""
+    // warn the user if overriding the basecall models found in the inputs
+    if (params.override_basecaller_cfg) {
+        log.warn \
+            "Overriding basecall model with '${params.override_basecaller_cfg}'."
+    }
+
+    String fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length " : ""
+
+    Map ingress_args = [
+        "sample":params.sample,
+        "sample_sheet":params.sample_sheet,
+        "analyse_unclassified":params.analyse_unclassified,
+        "stats":true,
+        "per_read_stats":true,
+        "fastcat_extra_args":fastcat_extra_args,
+        "allow_multiple_basecall_models": false,
+    ]
 
     if (params.fastq){
-         samples = fastq_ingress([
+        samples = fastq_ingress(ingress_args + [
             "input":params.fastq,
-            "sample":params.sample,
-            "sample_sheet":params.sample_sheet,
-            "analyse_unclassified":params.analyse_unclassified,
-            "stats":true,
-            "per_read_stats":true,
-            "fastcat_extra_args":fastcat_extra_args
         ])
     } else {
-        samples = xam_ingress([
+        samples = xam_ingress(ingress_args + [
             "input":params.bam,
-            "sample_sheet":params.sample_sheet,
             "return_fastq":true,
-            "stats":true,
-            "per_read_stats":true,
-            "fastcat_extra_args": fastcat_extra_args
         ])
     } 
 
    
     reference = params.reference
     results = calling_pipeline(samples, reference)
-    output(results.all_out)
+
+    results.all_out
+    | output
 }
 
 workflow.onComplete {
