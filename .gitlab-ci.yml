@@ -31,7 +31,7 @@ docker-run:
         - if: $MATRIX_NAME == "de-novo-bam"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-                  --bam test_data/bam --threads 4 --chunk_size 100000"
+                  --bam test_data/bam --threads 4 --chunk_size 100000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
         - if: $MATRIX_NAME == "de-novo-advanced_options"
           variables:
@@ -46,38 +46,37 @@ docker-run:
         - if: $MATRIX_NAME == "check-model"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
-              --fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
-                  --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
+              --fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000"
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "amr"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-                  --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --client_fields test_data/client_fields.json"
+                  --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --client_fields test_data/client_fields.json --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantHdf,makePerSampleReports"
         - if: $MATRIX_NAME == "sample-sheet"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
               --fastq test_data/fastq --reference_based_assembly --reference test_data/ref/reference.subseq.fa.gz --threads 4 --chunk_size 100000 \
-                  --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2 --sample_sheet test_data/sample_sheet.csv"
+                  --sample_sheet test_data/sample_sheet.csv"
               NF_IGNORE_PROCESSES: "deNovo,assemblyStats,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "barcode04"
           # isolates barcode04 only has 4 reads and flye will fail due to low coverage
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
               --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq/barcode04 \
-                  --threads 3 --chunk_size 100000"
+                  --threads 3 --chunk_size 100000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,makeReport,runProkka,makePerSampleReports"
         - if: $MATRIX_NAME == "mixed-species"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates"
+              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/test_data/isolates_fastq --sample_sheet test_data/isolates_mixed_sample_sheet.csv --threads 3 --chunk_size 100000 --isolates --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "runProkka,medakaVariant,medakaVariantHdf"
         # serotyping
         - if: $MATRIX_NAME == "reference-iso"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
-              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/wf-bacterial-genomes-demo/isolates_fastq/barcode02 --reference_based_assembly --reference test_data/ref/salmonella_reference.fa.gz --threads 4 --chunk_size 100000 --isolates"
+              --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/wf-bacterial-genomes-demo/isolates_fastq/barcode02 --reference_based_assembly --reference test_data/ref/salmonella_reference.fa.gz --threads 4 --chunk_size 100000 --isolates --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "deNovo,runProkka"
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:

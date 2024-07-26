@@ -43,36 +43,6 @@
                     "description": "Reference sequence FASTA file.",
                     "help_text": "The reference sequence is used when performing reference-based assembly."
                 },
-                "basecaller_cfg": {
-                    "type": "string",
-                    "title": "Basecaller model configuration",
-                    "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
-                    "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the `medaka_variant_model` and `medaka_consensus_model` parameters. The model list only shows models that are compatible with this workflow.",
-                    "default": "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
-                    "enum": [
-                        "dna_r10.4.1_e8.2_400bps_hac@v4.2.0",
-                        "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
-                        "dna_r10.4.1_e8.2_260bps_hac@v4.1.0",
-                        "dna_r10.4.1_e8.2_260bps_sup@v4.1.0",
-                        "dna_r10.4.1_e8.2_400bps_hac@v4.1.0",
-                        "dna_r10.4.1_e8.2_400bps_sup@v4.1.0",
-                        "dna_r10.4.1_e8.2_400bps_hac@v3.5.2",
-                        "dna_r10.4.1_e8.2_400bps_sup@v3.5.2",
-                        "dna_r9.4.1_e8_fast@v3.4",
-                        "dna_r9.4.1_e8_hac@v3.3",
-                        "dna_r9.4.1_e8_sup@v3.3",
-                        "dna_r10.4.1_e8.2_400bps_hac_prom",
-                        "dna_r9.4.1_450bps_hac_prom",
-                        "dna_r10.3_450bps_hac",
-                        "dna_r10.3_450bps_hac_prom",
-                        "dna_r10.4.1_e8.2_260bps_hac",
-                        "dna_r10.4.1_e8.2_260bps_hac_prom",
-                        "dna_r10.4.1_e8.2_400bps_hac",
-                        "dna_r9.4.1_450bps_hac",
-                        "dna_r9.4.1_e8.1_hac",
-                        "dna_r9.4.1_e8.1_hac_prom"
-                    ]
-                },
                 "analyse_unclassified": {
                     "type": "boolean",
                     "default": false,
@@ -99,35 +69,6 @@
                         {
                             "required": [
                                 "bam"
-                            ]
-                        }
-                    ]
-        
-                },
-                {
-                    "oneOf": [
-                        {
-                            "required": [
-                                "basecaller_cfg"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "medaka_consesus_model"
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "oneOf": [
-                        {
-                            "required": [
-                                "basecaller_cfg"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "medaka_variant_model"
                             ]
                         }
                     ]
@@ -194,6 +135,43 @@
             "description": "Advanced options for configuring processes inside the workflow.",
             "help_text": "These advanced options do not need to be changed for typical use, but allow fine tuning of workflows for users who want more control over the workflow.",
             "properties": {
+                "override_basecaller_cfg": {
+                    "type": "string",
+                    "title": "Override basecaller configuration",
+                    "description": "Override auto-detected basecaller model that processed the signal data; used to select an appropriate Medaka model.",
+                    "help_text": "Per default, the workflow tries to determine the basecall model from the input data. This parameter can be used to override the detected value (or to provide a model name if none was found in the inputs). However, users should only do this if they know for certain which model was used as selecting the wrong option might give sub-optimal results. A list of recent models can be found here: https://github.com/nanoporetech/dorado#DNA-models.",
+                    "enum": [
+                        "dna_r10.4.1_e8.2_400bps_sup@v5.0.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v5.0.0",
+                        "dna_r10.4.1_e8.2_400bps_sup@v4.3.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v4.3.0",
+                        "dna_r10.4.1_e8.2_400bps_sup@v4.2.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v4.2.0",
+                        "dna_r10.4.1_e8.2_260bps_hac@v4.1.0",
+                        "dna_r10.4.1_e8.2_260bps_sup@v4.1.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v4.1.0",
+                        "dna_r10.4.1_e8.2_400bps_sup@v4.1.0",
+                        "dna_r10.4.1_e8.2_260bps_hac@v4.0.0",
+                        "dna_r10.4.1_e8.2_260bps_sup@v4.0.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v4.0.0",
+                        "dna_r10.4.1_e8.2_400bps_sup@v4.0.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v3.5.2",
+                        "dna_r10.4.1_e8.2_400bps_sup@v3.5.2",
+                        "dna_r9.4.1_e8_fast@v3.4",
+                        "dna_r9.4.1_e8_hac@v3.3",
+                        "dna_r9.4.1_e8_sup@v3.3",
+                        "dna_r10.4.1_e8.2_400bps_hac_prom",
+                        "dna_r9.4.1_450bps_hac_prom",
+                        "dna_r10.3_450bps_hac",
+                        "dna_r10.3_450bps_hac_prom",
+                        "dna_r10.4.1_e8.2_260bps_hac",
+                        "dna_r10.4.1_e8.2_260bps_hac_prom",
+                        "dna_r10.4.1_e8.2_400bps_hac",
+                        "dna_r9.4.1_450bps_hac",
+                        "dna_r9.4.1_e8.1_hac",
+                        "dna_r9.4.1_e8.1_hac_prom"
+                    ]
+                },
                 "chunk_size": {
                     "type": "integer",
                     "title": "Chunk size",
@@ -237,18 +215,6 @@
                     "default": 1000,
                     "Title": "Minimum read length",
                     "description": "Reads below this threshold will be removed from analysis."
-                },
-                "medaka_consensus_model": {
-                    "type": "string",
-                    "title": "Medaka consensus model",
-                    "description": "The name of a Medaka consensus model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
-                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead."
-                },
-                "medaka_variant_model": {
-                    "type": "string",
-                    "title": "Medaka variant model",
-                    "description": "The name of a Medaka variant model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
-                    "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka variant model. You can override this by providing a model with this option instead."
                 }
             },
             "dependencies": {
