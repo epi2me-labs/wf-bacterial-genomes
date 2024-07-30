@@ -69,9 +69,7 @@ process coverStats {
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
-    memory { task.attempt == 1 ? "15 GB" : "31 GB" }
-    errorStrategy { task.exitStatus == 137 ? "retry" : "terminate" }
-    maxRetries 1
+    memory "31 GB"
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
