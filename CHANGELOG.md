@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - New docker images for [resfinder](https://hub.docker.com/r/ontresearch/resfinder) and [mlst](https://hub.docker.com/r/ontresearch/mlst).
 - Updated Medaka to v1.12.0.
+- Updated minimum computer specs as flye was not performing robustly.
 
 ## [v1.2.0]
 ### Added

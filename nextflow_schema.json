@@ -323,11 +323,11 @@
     "resources": {
         "recommended": {
             "cpus": 16,
-            "memory": "32GB"
+            "memory": "64GB"
         },
         "minimum": {
-            "cpus": 4,
-            "memory": "16GB"
+            "cpus": 8,
+            "memory": "32GB"
         },
         "run_time": "20-40 minutes per sample with ~50x coverage using minimum requirements",
         "arm_support": true

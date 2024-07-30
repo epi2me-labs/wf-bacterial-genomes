@@ -26,12 +26,12 @@ In brief, this workflow will perform the following:
 Recommended requirements:
 
 + CPUs = 16
-+ Memory = 32GB
++ Memory = 64GB
 
 Minimum requirements:
 
-+ CPUs = 4
-+ Memory = 16GB
++ CPUs = 8
++ Memory = 32GB
 
 Approximate run time: 20-40 minutes per sample with ~50x coverage using minimum requirements
 
