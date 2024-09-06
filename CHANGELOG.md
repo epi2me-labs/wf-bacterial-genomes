@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Reconciled workflow with wf-template v5.2.3
+- Report wording
 
 ## [v1.3.0]
 ### Added
