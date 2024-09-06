@@ -470,7 +470,7 @@ def create_report(args, logger):
                         )
                         DataTable.from_pandas(prokka_df, use_index=False)
     if args.isolates:
-        with report.add_section("Antimicrobial resistance", "AMR"):
+        with report.add_section("Antimicrobial resistance prediction", "AMR"):
             html_raw(
                 """
                 The contigs were analysed for antimicrobial resistance using <a

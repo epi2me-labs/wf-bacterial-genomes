@@ -13,7 +13,7 @@ def process_resfinder(resfinder_data, amr_type="resfinder"):
     """Select right columns and split loc column."""
     if len(resfinder_data) == 0:
         resfinder_data = pd.DataFrame(columns=[
-            'Contig', 'Resistance gene', 'Start', 'End', 'Phenotype',
+            'Contig', 'Resistance gene', 'Start', 'End', 'Predicted phenotype',
             'Identity/Nucleotide',
             'Coverage/AA', 'Accession no./PMID', 'Source'])
         return resfinder_data
@@ -26,7 +26,7 @@ def process_resfinder(resfinder_data, amr_type="resfinder"):
         'Coverage', 'Accession no.')]
     resfinder_data = resfinder_data.assign(Type=amr_type)
     out_columns = [
-        'Contig', 'Resistance gene', 'Start', 'End', 'Phenotype',
+        'Contig', 'Resistance gene', 'Start', 'End', 'Predicted phenotype',
         'Identity/Nucleotide',
         'Coverage/AA', 'Accession no./PMID', 'Source']
     resfinder_data = resfinder_data.set_axis(out_columns, axis=1, copy=False)
@@ -128,7 +128,7 @@ def process_pointfinder(pointfinder_data, database_location):
     # TODO: This is all messy and needs refactoring
     if len(pointfinder_data) == 0:
         pointfinder_data = pd.DataFrame(columns=[
-            'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
+            'Contig', 'Start', 'End', 'Predicted phenotype', 'Identity/Nucleotide',
             'Coverage/AA', 'Accession no./PMID', 'Source'])
         return pointfinder_data
     try:
@@ -154,7 +154,7 @@ def process_pointfinder(pointfinder_data, database_location):
         :, [4, 8, 9, 12, 10, 11, 13, 14]]
     concat_df_merge_tidy = concat_df_merge_tidy.assign(Type='pointfinder')
     out_columns = [
-        'Contig', 'Start', 'End', 'Phenotype', 'Identity/Nucleotide',
+        'Contig', 'Start', 'End', 'Predicted phenotype', 'Identity/Nucleotide',
         'Coverage/AA', 'Accession no./PMID', 'Resistance gene', 'Source']
     concat_df_merge_tidy = concat_df_merge_tidy.set_axis(
         out_columns, axis=1, copy=False)
