@@ -345,6 +345,7 @@ def main(args):
         "wf-bacterial-genomes",
         args.params,
         args.versions,
+        args.wf_version
     )
 
     files = gather_sample_files(args.sample_alias, args.data_dir)
@@ -443,9 +444,11 @@ def argparser():
         help="A JSON file containing the workflow parameter key/values",
     )
     parser.add_argument("--output", help="Report output filename")
-    parser.add_argument("--sample-alias", required=True)
-    parser.add_argument("--sample-barcode", required=True)
+    parser.add_argument("--sample_alias", required=True)
+    parser.add_argument("--sample_barcode", required=True)
     parser.add_argument("--data_dir", required=True, help="Analysis results directory")
-    parser.add_argument("--wf-session", required=True)
-    parser.add_argument("--wf-version", required=True)
+    parser.add_argument("--wf_session", required=True)
+    parser.add_argument(
+        "--wf_version", default="unknown",
+        help="version of the executed workflow")
     return parser

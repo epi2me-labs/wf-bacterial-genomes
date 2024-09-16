@@ -13,7 +13,8 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr, barcode04, mixed-species, reference-iso, de-novo-advanced_options, de-novo-bam]
+            - MATRIX_NAME: [de-novo, amr, barcode04, mixed-species, reference-iso, de-novo-advanced_options, de-novo-bam,
+                            bacteria-medaka-model]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -78,6 +79,11 @@ docker-run:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 16GB \
               --fastq s3://ont-exd-int-s3-euwst1-epi2me-labs/wf-bacterial-genomes/wf-bacterial-genomes-demo/isolates_fastq/barcode02 --reference_based_assembly --reference test_data/ref/salmonella_reference.fa.gz --threads 4 --chunk_size 100000 --isolates --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "deNovo,runProkka"
+        - if: $MATRIX_NAME == "bacteria-medaka-model"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
+              --bam test_data/bam --threads 4 --chunk_size 100000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+              NF_IGNORE_PROCESSES: "runProkka,makePerSampleReports"
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
     extends: .aux-container

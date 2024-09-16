@@ -7,8 +7,8 @@ import groovy.json.JsonBuilder
 include { fastq_ingress; xam_ingress  } from './lib/ingress'
 include { run_isolates } from './modules/local/isolates'
 include {
-    medakaHdf as medakaHdf_consensus;
-    medakaHdf as medakaHdf_variant;
+    medakaInference as medakaInference_consensus;
+    medakaInference as medakaInference_variant;
     medakaConsensus;
     medakaVariant;
 } from './modules/local/medaka'
@@ -306,7 +306,7 @@ process createRunModel {
 
 
 process makeReport {
-    label "wfbacterialgenomes"
+    label "wf_common"
     cpus 1
     memory "15 GB"
     input:
@@ -348,13 +348,14 @@ process makeReport {
     --params params.json \
     --output $report_name \
     --sample_ids $samples \
-   $client_fields_args 
+   $client_fields_args \
+   --wf_version ${workflow.manifest.version}
     """
 }
 
 
 process makePerSampleReports {
-    label "wfbacterialgenomes"
+    label "wf_common"
     cpus 1
     memory "15 GB"
     input:
@@ -373,11 +374,11 @@ process makePerSampleReports {
         --versions versions.txt \
         --params params.json \
         --output ${meta.alias}-isolate-report.html \
-        --sample-alias ${meta.alias} \
-        --sample-barcode $barcode \
+        --sample_alias ${meta.alias} \
+        --sample_barcode $barcode \
         --data_dir report_files \
-        --wf-session $workflow.sessionId \
-        --wf-version $workflow.manifest.version
+        --wf_session $workflow.sessionId \
+        --wf_version $workflow.manifest.version
     """
 }
 
@@ -525,7 +526,7 @@ workflow calling_pipeline {
         regions_bams = named_alignments.combine(named_regions, by: 0).map{it[1..-1]}
         regions_model = regions_bams.combine(basecall_models, by: 0)
         // the `.combine`s below use the meta map (and not sample id)
-        consensus = medakaHdf_consensus(regions_model, "consensus")
+        consensus = medakaInference_consensus(regions_model, "consensus")
         | groupTuple
         | combine(alignments, by: 0)
         | combine(named_refs, by: 0)
@@ -539,7 +540,7 @@ workflow calling_pipeline {
 
         // medaka variants
         if (params.reference_based_assembly){
-            medakaHdf_variant(regions_model, "variant")
+            medakaInference_variant(regions_model, "variant")
             | groupTuple
             | combine(alignments, by: 0)
             | combine(named_refs, by: 0)
@@ -750,7 +751,7 @@ workflow {
             "Overriding basecall model with '${params.override_basecaller_cfg}'."
     }
 
-    String fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length " : ""
+    String fastcat_extra_args = params.min_read_length ? " -a $params.min_read_length" : ""
 
     Map ingress_args = [
         "sample":params.sample,
