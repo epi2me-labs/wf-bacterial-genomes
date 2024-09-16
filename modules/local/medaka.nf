@@ -1,4 +1,4 @@
-process medakaHdf {
+process medakaInference {
     // run medaka consensus for an individual region
     label "medaka"
     cpus 2
@@ -16,12 +16,24 @@ process medakaHdf {
     output:
         tuple val(meta), path("*consensus_probs.hdf")
     script:
-    assert type in ["consensus", "variant"]
+        assert type in ["consensus", "variant"]
+        // TO DO: Add reheader Sam and then update this to use medaka automodel.
+        consensus_bact_methyl_compatible_models = [
+            'dna_r10.4.1_e8.2_400bps_hac@v4.2.0', 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0', 
+            'dna_r10.4.1_e8.2_400bps_hac@v4.3.0', 'dna_r10.4.1_e8.2_400bps_sup@v4.3.0',
+            'dna_r10.4.1_e8.2_400bps_hac@v5.0.0', 'dna_r10.4.1_e8.2_400bps_sup@v5.0.0'
+        ]
+        if ((type == "consensus") && (basecall_model in consensus_bact_methyl_compatible_models)){
+            basecall_model = "r1041_e82_400bps_bacterial_methylation"       
+        }
+        else {
+            basecall_model = "${basecall_model}:${type}"
+        }
     """
     medaka --version
     echo ${basecall_model}
-    medaka consensus align.bam "${meta.alias}.consensus_probs.hdf" \
-        --threads 2 --regions "${region}" --model ${basecall_model}:${type}
+    medaka inference align.bam "${meta.alias}.consensus_probs.hdf" \
+        --threads 2 --regions "${region}" --model ${basecall_model}
     """
 }
 
@@ -40,7 +52,7 @@ process medakaConsensus {
         tuple val(meta), path("${meta.alias}.medaka.fasta.gz")
     shell:
     """
-    medaka stitch --threads $task.cpus \
+    medaka sequence --threads $task.cpus \
         consensus_probs*.hdf reference* "${meta.alias}.medaka.fasta"
 
     add_model_to_fasta.sh ${basecall_model} "${meta.alias}.medaka.fasta"
@@ -64,7 +76,7 @@ process medakaVariant {
     //       issues. Also the first step may create an index if not already existing so
     //       the alternative reference.* will break.
     """
-    medaka variant ref.fasta.gz consensus_probs*.hdf vanilla.vcf
+    medaka vcf consensus_probs*.hdf ref.fasta.gz vanilla.vcf
     bcftools sort vanilla.vcf > vanilla.sorted.vcf
 
     medaka tools annotate \

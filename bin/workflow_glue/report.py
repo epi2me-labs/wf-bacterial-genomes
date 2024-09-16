@@ -12,7 +12,7 @@ from ezcharts.components.ezchart import EZChart
 from ezcharts.components.reports import labs
 from ezcharts.layout.snippets import Grid, Tabs
 from ezcharts.layout.snippets.table import DataTable
-from ezcharts.plots import AxisLabelFormatter, util as ezc_util
+from ezcharts.plots import util as ezc_util
 
 from .parsers import (  # noqa: ABS101
     parse_bcftools_stats_multi,
@@ -162,13 +162,11 @@ def get_depth_plots(total, fwd, rev):
             x="mean_pos",
             y="depth",
             hue="hue",
+            title=ref,
+            marker=False
         )
-        p.title = dict(text=ref)
-        for series in p.series:
-            series.showSymbol = False
-        p.legend = dict(orient="vertical", right=10, top="center")
-        p.xAxis.name = "Position along reference"
-        p.yAxis.name = "Sequencing depth / Bases"
+        p._fig.xaxis.axis_label = "Position along reference"
+        p._fig.yaxis.axis_label = "Sequencing depth / Bases"
         plots.append(p)
     return plots
 
@@ -262,16 +260,14 @@ def get_indel_length_histogram(indel_lengths):
     # now plot the histogram with one bar at each position in `nlength` and bar heights
     # corresponding to `count`
     p = ezc.histplot(
-        data=plt_data["nlength"], x="nlength", discrete=True, weights=plt_data["count"]
+        data=plt_data["nlength"], x="nlength", discrete=True, weights=plt_data["count"],
+        title="Insertion and deletion lengths"
     )
-    # title, labels, formatting
-    p.title = dict(text="Insertion and deletion lengths")
-    p.xAxis.min = plt_data["nlength"].min() - 1
-    p.xAxis.max = plt_data["nlength"].max() + 1
-    p.xAxis.name = "Length / bases (deletions negative)"
-    p.yAxis.name = "Count"
-    # make sure we don't use scientific notation for x-axis tick labels
-    p.xAxis.axisLabel = dict(formatter=AxisLabelFormatter(sci_notation=False))
+    # labels, formatting
+    p._fig.x_range.start = plt_data["nlength"].min() - 1
+    p._fig.x_range.end = plt_data["nlength"].max() + 1
+    p._fig.xaxis.axis_label = "Length / bases (deletions negative)"
+    p._fig.yaxis.axis_label = "Count"
     return p
 
 
@@ -282,6 +278,7 @@ def create_report(args, logger):
         "wf-bacterial-genomes",
         args.params,
         args.versions,
+        args.wf_version
     )
     samples = sorted(args.sample_ids)
 
@@ -633,5 +630,8 @@ def argparser():
     parser.add_argument(
         "--client_fields", default=None, required=False,
         help="A JSON file containing useful key/values for display")
+    parser.add_argument(
+        "--wf_version", default='unknown',
+        help="version of the executed workflow")
 
     return parser
