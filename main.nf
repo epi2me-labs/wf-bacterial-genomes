@@ -75,7 +75,7 @@ process deNovo {
     output:
         tuple val(meta),
             path("${meta.alias}.draft_assembly.fasta.gz"),
-            path("${meta.alias}_flye_stats.tsv"),
+            path("${meta.alias}.flye_stats.tsv"),
             optional: true, emit: asm
         tuple val(meta), env(COV_FAIL), emit: failed
     script:
@@ -92,7 +92,7 @@ process deNovo {
 
     if [[ \$FLYE_EXIT_CODE -eq 0 ]]; then
         mv output/assembly.fasta "./${meta.alias}.draft_assembly.fasta"
-        mv output/assembly_info.txt "./${meta.alias}_flye_stats.tsv"
+        mv output/assembly_info.txt "./${meta.alias}.flye_stats.tsv"
         bgzip "${meta.alias}.draft_assembly.fasta"
     else
         # flye failed --> check the log to check why
@@ -723,6 +723,7 @@ workflow calling_pipeline {
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
             mlst.map {meta, mlst -> mlst},
+            flye_info.map {meta, stats -> stats},
             workflow_params,
             software_versions,
             run_model,

@@ -22,69 +22,6 @@ from .parsers import (  # noqa: ABS101
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
-def collate_flye_stats(dir_path, sample_names, suffix, input_sep="\t", **kwargs):
-    """Collate stats files."""
-    dfs = []
-    valid_samples = []
-    for sample_name in sample_names:
-        file_path = os.path.join(dir_path, sample_name + suffix)
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path, sep=input_sep, **kwargs)
-            dfs.append(df)
-            valid_samples.append(sample_name)
-    samples_with_missing_files = sorted(set(sample_names) - set(valid_samples))
-    if not dfs:
-        # not a single sample with a valid assembly
-        return None, samples_with_missing_files
-    else:
-        return (
-            pd.concat(
-                dfs,
-                axis=0,
-                keys=valid_samples,
-            ),
-            samples_with_missing_files,
-        )
-
-
-def get_circular_flye_stats(input_df, circular_col_name="circ."):
-    """Parse flye output for stats on circularisation."""
-    circular = input_df.groupby(level=0)[circular_col_name].value_counts()
-    circular = circular.unstack()
-    circular = circular.fillna(0)
-
-    out_df = pd.DataFrame(
-        {"N": [0] * len(circular.index), "Y": [0] * len(circular.index)},
-        index=circular.index,
-    )
-    for sample in circular.index:
-        if "N" in circular.columns:
-            out_df.loc[sample, "N"] = circular.loc[sample, "N"]
-        if "Y" in circular.columns:
-            out_df.loc[sample, "Y"] = circular.loc[sample, "Y"]
-    return out_df
-
-
-def get_flye_stats(sample_names, flye_dir, flye_suffix):
-    """Get Flye stats."""
-    # flye stats
-    flye_stats, samples_with_missing_files = collate_flye_stats(
-        flye_dir, sample_names, flye_suffix
-    )
-    if flye_stats is None:
-        return flye_stats, samples_with_missing_files
-    flye_stats["circ."] = flye_stats["circ."].str.strip()
-    flye_cov_mean = (
-        flye_stats[
-            flye_stats["repeat"] == "N"].groupby(level=0)["cov."].mean().round(2)
-    )
-    # flye_cov_mean = flye_cov_mean.reset_index()
-    flye_circular = get_circular_flye_stats(flye_stats)
-    flye_out = pd.concat([flye_cov_mean, flye_circular["Y"]], axis=1)
-    flye_out.columns = ["Mean contig coverage", "# circular contigs"]
-    return flye_out, samples_with_missing_files
-
-
 def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, logger):
     """Collect files required for the report per sample and make sure they exist."""
     sample_files = {}
@@ -95,6 +32,7 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
         "variants": ["variants", "variants.stats"],
         "prokka": ["prokka", "prokka.gff"],
         "resfinder": ["resfinder", "resfinder_results.txt"],
+        "flye_stats": ["flye_stats", "flye_stats.tsv"],
         "mlst": ["mlst", "mlst.json"],
         "serotype": ["serotype", "serotype_results.tsv"]
     }
@@ -103,36 +41,28 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
         # add the paths to the dict corresponding to the current sample
         for file_type, (subdir, suffix) in subdirs_and_suffixes.items():
             file = os.path.join(subdir, f"{sample_name}.{suffix}")
-            # the three depth files should always be present, the variants file only
-            # when no de-novo assembly was made and the prokka output only in prokka
-            # mode
-            if (
-                file_type in ("total_depth", "fwd_depth", "rev_depth")
-                or (file_type == "variants" and not denovo_mode)
-                or (file_type == "prokka" and prokka_mode)
-            ):
-                if not os.path.exists(file):
-                    raise ValueError(
-                        f"Required file '{file_type}' missing "
-                        f"for sample '{sample_name}'."
-                    )
-            # these may not be produced as errorStrategy is set to "ignore"
-            # serotype only produced for salmonella isolates
-            elif (
-                file_type in ("resfinder", "mlst", "serotype")
-                and isolates_mode
-            ):
-                if not os.path.exists(file):
+
+            if not os.path.exists(file):
+                if (
+                    file_type in ("resfinder", "mlst", "serotype")
+                    and isolates_mode
+                ):
                     logger.error(
                         f"Isolates file for '{file_type}' missing "
                         f"for sample '{sample_name}' - Check status of analysis."
                         )
-                    file = None
-            else:
-                # this covers the cases when files are not needed (e.g. `variants` when
-                # doing a de-novo assembly)
                 file = None
             files[file_type] = file
+        # We check depths after all files collected, as they are allowed to be empty
+        # If flye failed
+        for file_type in ["total_depth", "fwd_depth", "rev_depth", "prokka"]:
+            # If none check flye_stats
+            if not files[file_type]:
+                if files["flye_stats"]:
+                    raise ValueError(
+                        f"Required file '{file_type}' missing "
+                        f"for sample '{sample_name}'."
+                    )
         sample_files[sample_name] = files
     return sample_files
 
@@ -282,6 +212,12 @@ def create_report(args, logger):
     )
     samples = sorted(args.sample_ids)
 
+    # Gather stats files for each sample (will be used by the various report sections
+    # below)
+    sample_files = gather_sample_files(
+        samples, args.denovo, args.prokka, args.isolates, logger
+        )
+
     if args.stats:
         sample_ids_with_stats = sorted(
             zip(args.sample_ids_with_stats, args.stats), key=lambda x: x[0]
@@ -302,48 +238,33 @@ def create_report(args, logger):
             "As no reference was provided the reads were assembled"
             " and corrected using Flye and Medaka."
         )
-        stats_table, samples_flye_failed = get_flye_stats(
-            sample_names=samples,
-            flye_dir="flye_stats",
-            flye_suffix="_flye_stats.tsv",
-        )
-        samples = [
-            sample for sample in samples if sample not in samples_flye_failed
-        ]
         with report.add_section("Assembly summary statistics", "Assembly"):
             html_tags.p(
                 "This section displays the read and assembly QC"
                 " statistics for all the samples in the run."
             )
-            if stats_table is not None:
-                stats_table.index.name = "Sample"
-                if samples_flye_failed:
-                    html_raw(
-                        f"""
-                        <b>Info:</b> Flye failed to produce an
-                        assembly for the following samples:
-                        <b>{", ".join(samples_flye_failed)}</b>.<br>
-
-                        They will be omitted from the rest of the report.
-                        """
-                    )
-                DataTable.from_pandas(stats_table)
-            else:
-                # not a single sample produced a valid assembly
-                html_raw(
-                    """
-                    <b>Warning:</b> Flye failed to produce an
-                    assembly for any of the samples. There are therefore no more results
-                    to report.
-                    """
-                )
-                return report
-
-    # Gather stats files for each sample (will be used by the various report sections
-    # below)
-    sample_files = gather_sample_files(
-        samples, args.denovo, args.prokka, args.isolates, logger
-        )
+            tabs = Tabs()
+            with tabs.add_dropdown_menu():
+                for name, files in sample_files.items():
+                    with tabs.add_dropdown_tab(name):
+                        if files["flye_stats"] is None:
+                            html_tags.p(
+                                f"Flye failed to produce an assembly for {name}.")
+                        else:
+                            renamed_columns = {
+                                "#seq_name": "Contig",
+                                "length": "Length (bp)",
+                                "cov.": "Coverage",
+                                "circ.": "Circular",
+                                "repeat": "Repeat",
+                                "mult.": "Multiplicity"
+                            }
+                            flye_df = pd.read_csv(
+                                files["flye_stats"],
+                                sep="\t",
+                                usecols=[0, 1, 2, 3, 4, 5]
+                            ).rename(columns=renamed_columns)
+                            DataTable.from_pandas(flye_df, use_index=False)
 
     with report.add_section("Genome coverage", "Depth"):
         html_tags.p(
@@ -358,11 +279,18 @@ def create_report(args, logger):
         with tabs.add_dropdown_menu():
             for name, files in sample_files.items():
                 with tabs.add_dropdown_tab(name):
-                    depth_plots = get_depth_plots(
-                        files["total_depth"], files["fwd_depth"], files["rev_depth"]
-                    )
-                    for plot in depth_plots:
-                        EZChart(plot, "epi2melabs")
+                    if files["total_depth"] \
+                        and files["fwd_depth"] \
+                            and files["rev_depth"]:
+                        depth_plots = get_depth_plots(
+                            files["total_depth"], files["fwd_depth"], files["rev_depth"]
+                        )
+                        for plot in depth_plots:
+                            EZChart(plot, "epi2melabs")
+                    else:
+                        html_tags.p(
+                            """No coverage data for sample, check assembly"""
+                        )
 
     if not args.denovo:
         with report.add_section("Variant calling", "Variants"):
@@ -462,10 +390,16 @@ def create_report(args, logger):
                         # use custom func to capitalize the column names because
                         # `str.capitalize()` also changes all-upper-case strings
                         # (e.g. "ID" to "Id")
-                        prokka_df = parse_prokka_gff(files["prokka"]).rename(
-                            columns=lambda col: col[0].upper() + col[1:]
-                        )
-                        DataTable.from_pandas(prokka_df, use_index=False)
+                        if files["prokka"]:
+                            prokka_df = parse_prokka_gff(files["prokka"]).rename(
+                                columns=lambda col: col[0].upper() + col[1:]
+                            )
+                            DataTable.from_pandas(prokka_df, use_index=False)
+                        else:
+                            html_tags.p(
+                                """No annotation information for this sample.
+                                 Check assembly status."""
+                            )
     if args.isolates:
         with report.add_section("Antimicrobial resistance prediction", "AMR"):
             html_raw(
@@ -513,6 +447,13 @@ def create_report(args, logger):
                         # use custom func to capitalize the column names because
                         # `str.capitalize()` also changes all-upper-case strings
                         # (e.g. "ID" to "Id")
+                        if files["mlst"] is None:
+                            html_raw("""
+                <b>
+                No assembly available for MLST.
+                Please check coverage of sample.</b>
+                """)
+                            break
                         mlst_df = parse_mlst(files["mlst"])
                         if mlst_df is None:
                             html_raw("""

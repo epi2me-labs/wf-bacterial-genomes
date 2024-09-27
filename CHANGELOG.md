@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- `Flye` stats output and report
+
 ## [v1.4.0]
 ### Changed
 - Reconciled workflow with wf-template v5.2.5.
@@ -18,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `--basecaller_cfg`, `--medaka_consensus_model`, and `--medaka_variant_model` parameters as the appropriate Medaka model is now automatically determined from the input data.
 ### Changed
 - New docker images for [resfinder](https://hub.docker.com/r/ontresearch/resfinder) and [mlst](https://hub.docker.com/r/ontresearch/mlst).
-- Updated Medaka to v1.12.0.
-- Updated minimum computer specs as flye was not performing robustly.
 
 ## [v1.2.0]
 ### Added
