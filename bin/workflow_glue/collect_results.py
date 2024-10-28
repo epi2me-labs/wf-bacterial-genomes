@@ -47,18 +47,29 @@ def gather_sample_files(alias, data_dir):
 
 def fastcat_stats(len_hist, qual_hist):
     """Collect fastcat stats."""
+    # hists can be empty in the case of fastcat filtering all reads
     qual_df = pd.read_csv(qual_hist, sep="\t", names=["lower", "upper", "count"])
-    mean_qual = np.average(
-        qual_df["upper"] - qual_df["lower"], weights=qual_df["count"]
-        )
+    mean_qual = 0
+    if not qual_df.empty:
+        mean_qual = np.average(
+            qual_df["upper"] - qual_df["lower"], weights=qual_df["count"])
 
+    n_seqs = 0
+    n_bases = 0
+    min_length = 0
+    max_length = 0
     len_df = pd.read_csv(len_hist, sep="\t", names=["lower", "upper", "count"])
+    if not len_df.empty:
+        n_seqs = len_df["count"].sum()
+        n_bases = (len_df["lower"] * len_df["count"]).sum()
+        min_length = len_df["lower"].min()
+        max_length = len_df["lower"].max()
 
     result = wf.FastqStats(
-        n_seqs=len_df["count"].sum(),
-        n_bases=(len_df["lower"] * len_df["count"]).sum(),
-        min_length=len_df["lower"].min(),
-        max_length=len_df["lower"].max(),
+        n_seqs=n_seqs,
+        n_bases=n_bases,
+        min_length=min_length,
+        max_length=max_length,
         mean_quality=mean_qual
     )
 

@@ -438,9 +438,9 @@ workflow calling_pipeline {
         reference
     main:
         reads.branch { meta, reads, stats -> 
-            reads : reads != null
+            reads : meta.n_seqs > 0
                 return [ meta, reads ]
-            no_reads : reads == null
+            no_reads : meta.n_seqs == null || meta.n_seqs == 0
                 return [ meta, OPTIONAL_FILE ]
         }.set{input_reads}
         
@@ -448,17 +448,14 @@ workflow calling_pipeline {
             input_reads.reads | map { meta, reads -> [ meta, "complete" ] }
             | mix (input_reads.no_reads | map { meta, reads -> [ meta, "not-met" ] } )
         )
-        
-        sample_ids = reads.map { meta, reads, stats -> meta.alias }
-        metadata = reads.map { meta, reads, stats -> meta } | toList()
-        definitions = projectDir.resolve("./output_definition.json").toString()
-        client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : OPTIONAL_FILE
+
 
         // get basecall models: we use `params.override_basecaller_cfg` if present;
         // otherwise use `meta.basecall_models[0]` (there should only be one value in
         // the list because we're running ingress with `allow_multiple_basecall_models:
         // false`; note that `[0]` on an empty list returns `null`)
-        basecall_models = reads.map { meta, reads, stats ->
+
+        basecall_models_initial = input_reads.reads.map { meta, reads ->
             String basecall_model = \
                 params.override_basecaller_cfg ?: meta.basecall_models[0]
             if (!basecall_model) {
@@ -468,6 +465,11 @@ workflow calling_pipeline {
             }
             [meta, basecall_model]
         }
+
+        sample_ids = reads.map { meta, reads, stats -> meta.alias }
+        metadata = reads.map { meta, reads, stats -> meta } | toList()
+        definitions = projectDir.resolve("./output_definition.json").toString()
+        client_fields = params.client_fields && file(params.client_fields).exists() ? file(params.client_fields) : OPTIONAL_FILE
 
         if (params.reference_based_assembly && !params.reference){
             throw new Exception("Reference based assembly selected, a reference sequence must be provided through the --reference parameter.")
@@ -488,6 +490,7 @@ workflow calling_pipeline {
             failed_samples = input_reads.no_reads.mix(
                 deNovo.out.failed | filter { meta, failed -> failed != "0"}
             ) | map { meta, field -> [ meta, "not-met" ] }
+
             named_refs = deNovo.out.asm.map { meta, asm, stats -> [meta, asm] }
             // Nextflow might be run in strict mode (e.g. in CI) which prevents `join`
             // from dropping non-matching entries. We have to use `remainder: true` and
@@ -498,7 +501,7 @@ workflow calling_pipeline {
             flye_info = deNovo.out.asm.map { meta, asm, stats -> [meta, stats] }
         } else {
             log.info("Reference based assembly selected.")
-            references = channel.fromPath(params.reference)
+            references = Channel.fromPath(params.reference)
             read_ref_groups = input_reads.reads.combine(references)
             named_refs = read_ref_groups.map { it -> [it[0], it[2]] }
             flye_info = Channel.empty()
@@ -519,6 +522,15 @@ workflow calling_pipeline {
         named_regions = regions.map {
             it -> return tuple(it.split(/&split!/)[0], it.split(/&split!/)[1])
         }
+        
+
+        // Filter out samples that failed assembly
+        // Join will create [meta, basecall, null] for passed samples
+        // and [meta, null, "not-met"] for failed samples
+        basecall_models = basecall_models_initial
+        | join( failed_samples, failOnMismatch: false, remainder: true)
+        | filter{ meta, basecall, failed -> failed == null }
+        | map { meta, basecall, failed -> [meta, basecall] }
 
         // medaka consensus
         named_alignments = alignments.map{ meta, bam, bai -> [meta.alias, meta, bam, bai] }
