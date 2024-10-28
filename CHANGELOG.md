@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Flye` stats output and report
 ### Changed
 - Reconciled workflow with wf-template v5.3.0
+- Filtering samples with no data on meta.n_seqs instead of presence of fastq file post ingress
 
 ## [v1.4.0]
 ### Changed

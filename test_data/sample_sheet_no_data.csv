@@ -1,0 +1,4 @@
+barcode,alias,type
+barcode01,one_read,test_sample
+barcode02,short_reads,test_sample
+barcode03,no_data,test_sample
