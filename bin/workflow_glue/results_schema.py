@@ -11,7 +11,7 @@ from pydantic import Field
 from workflow_glue.results_schema_helpers import BaseModel
 
 
-class SampleType(Enum):
+class SampleType(str, Enum):
     """
     The type of the sample
     """
