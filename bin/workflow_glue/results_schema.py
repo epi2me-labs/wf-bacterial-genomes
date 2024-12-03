@@ -75,6 +75,7 @@ class Serotype(BaseModel):
     o_antigen_prediction: Optional[str] = None
     h1_antigen_prediction: Optional[str] = None
     h2_antigen_prediction: Optional[str] = None
+    qc_status: Optional[str] = None
 
 
 class Annotation(BaseModel):

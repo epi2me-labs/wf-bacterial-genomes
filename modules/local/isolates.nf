@@ -83,8 +83,34 @@ process processResfinder {
         """
 }
 
+// process serotyping {
+//     label "seqsero2"
+//     cpus 1
+//     memory "3 GB"
+//     errorStrategy 'ignore'
+//     input: 
+//         tuple val(meta), path("input_genome.fasta.gz"), val(species)
+//     output:
+//         tuple val(meta), path("${meta.alias}.serotype_results.tsv")
+//     script:
+//     """
+//     gunzip -c input_genome.fasta.gz > input_genome.fasta
+
+//     SeqSero2_package.py \
+//     -m k \
+//     -t '4' \
+//     -i input_genome.fasta \
+//     -p 1 \
+//     -b 'mem' \
+//     -d  output \
+//     -n ${meta.alias}
+
+//     cp -r output/SeqSero_result.tsv "${meta.alias}.serotype_results.tsv"
+//     """
+// }   
+
 process serotyping {
-    label "seqsero2"
+    label "sistr"
     cpus 1
     memory "3 GB"
     errorStrategy 'ignore'
@@ -96,19 +122,16 @@ process serotyping {
     """
     gunzip -c input_genome.fasta.gz > input_genome.fasta
 
-    SeqSero2_package.py \
-    -m k \
-    -t '4' \
-    -i input_genome.fasta \
-    -p 1 \
-    -b 'mem' \
-    -d  output \
-    -n ${meta.alias}
+    sistr --qc -vv  \
+                --alleles-output "${meta.alias}.alleles" \
+                --novel-alleles "${meta.alias}.novel_alleles" \
+                --use-full-cgmlst-db -m \
+                --cgmlst-profiles "${meta.alias}.profile" -f json \
+                -o "${meta.alias}_sistr.json" input_genome.fasta
 
-    cp -r output/SeqSero_result.tsv "${meta.alias}.serotype_results.tsv"
+    cp -r "${meta.alias}_sistr.json" "${meta.alias}.serotype_results.tsv"
     """
-}   
-
+}  
 
 workflow run_isolates {
    take:

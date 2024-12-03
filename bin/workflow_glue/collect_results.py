@@ -97,17 +97,50 @@ def parse_mlst(mlst_file):
     return result
 
 
-def parse_serotyping(serotype_file):
-    """Extract serotyping information from SeqSero2."""
-    sero_df = pd.read_csv(serotype_file, sep="\t")
-    # columns always present in seqsero output
+# def parse_serotyping(serotype_file):
+#     """Extract serotyping information from SeqSero2."""
+#     sero_df = pd.read_csv(serotype_file, sep="\t")
+#     # columns always present in seqsero output
+#     serotype = wf.Serotype(
+#         predicted_serotype=sero_df["Predicted serotype"].squeeze(),
+#         predicted_antigenic_profile=sero_df["Predicted antigenic profile"].squeeze(),
+#         o_antigen_predicition=sero_df["O antigen prediction"].squeeze(),
+#         h1_antigen_prediction=sero_df["H1 antigen prediction(fliC)"].squeeze(),
+#         h2_antigen_prediction=sero_df["H2 antigen prediction(fljB)"].squeeze()
+#     )
+#     return serotype
+
+
+def parse_serotyping(serotype_file, retrun_df=False):
+    """Extract serotyping information from SISTR."""
+    with open(serotype_file) as f:
+        sistr_profile = json.load(f)[0]
+
+        h1 = str(sistr_profile.get("h1", '-'))
+        h2 = str(sistr_profile.get("h2", '-'))
+        o_antigen = str(sistr_profile.get("o_antigen", "-"))
+        serovar  = sistr_profile.get("serovar", "-")
+        qc_status = sistr_profile.get("qc_status", "-")
+
     serotype = wf.Serotype(
-        predicted_serotype=sero_df["Predicted serotype"].squeeze(),
-        predicted_antigenic_profile=sero_df["Predicted antigenic profile"].squeeze(),
-        o_antigen_predicition=sero_df["O antigen prediction"].squeeze(),
-        h1_antigen_prediction=sero_df["H1 antigen prediction(fliC)"].squeeze(),
-        h2_antigen_prediction=sero_df["H2 antigen prediction(fljB)"].squeeze()
+        predicted_serotype=serovar,
+        predicted_antigenic_profile=f"{o_antigen}:{h1}:{h2}",
+        o_antigen_predicition=o_antigen,
+        h1_antigen_prediction=h1,
+        h2_antigen_prediction=h2,
+        qc_status=qc_status
     )
+
+    if retrun_df is True:
+        sero_df = pd.DataFrame({
+            "Predicted serotype": [serovar],
+            "Predicted antigenic profile": [predicted_antigenic_profile],
+            "O antigen prediction": [o_antigen],
+            "H1 antigen prediction(fliC)": [h1],
+            "H2 antigen prediction(fljB)": [h2],
+            "QC status": [qc_status]})
+        return sero_df
+    
     return serotype
 
 

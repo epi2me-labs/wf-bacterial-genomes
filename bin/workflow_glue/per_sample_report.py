@@ -6,7 +6,7 @@ from dominate import tags as html_tags
 from ezcharts.components.reports import labs
 import pandas as pd
 
-from .collect_results import gather_sample_files  # noqa: ABS101
+from .collect_results import gather_sample_files, parse_serotyping  # noqa: ABS101
 from .parsers import parse_mlst  # noqa: ABS101
 from .process_resfinder_iso import (  # noqa: ABS101
     get_acquired_data,
@@ -306,28 +306,65 @@ def mlst_section(mlst_file):
     return _div
 
 
+# def serotype_section(serotype_file):
+#     """Extract serotyping results."""
+#     columns = [
+#         "Predicted serotype",
+#         "Predicted antigenic profile",
+#         "O antigen prediction",
+#         "H1 antigen prediction(fliC)",
+#         "H2 antigen prediction(fljB)",
+#         "QC"
+#     ]
+#     # Check for file is made before section created in main()
+#     sero_df = pd.read_csv(
+#         serotype_file, sep="\t",
+#         usecols=columns
+#     )[columns]
+
+#     # Done manually to allow non-scrollable table for PDF output
+#     row_data = sero_df.iloc[0].values
+#     _div = html_tags.div()
+#     _table = html_tags.table(cls="table table-striped")
+#     _thead = html_tags.thead()
+#     _thead.add(html_tags.tr([html_tags.th(c) for c in columns]))
+#     _table.add(_thead)
+#     _tr = html_tags.tr()
+#     for cell in row_data:
+#         _tr.add(html_tags.td(cell))
+#     _table.add(_tr)
+#     _div.add(_table)
+#     return _div
+
 def serotype_section(serotype_file):
     """Extract serotyping results."""
-    columns = [
-        "Predicted serotype",
-        "Predicted antigenic profile",
-        "Predicted identification",
-        "O antigen prediction",
-        "H1 antigen prediction(fliC)",
-        "H2 antigen prediction(fljB)",
-        "Note"
-    ]
-    # Check for file is made before section created in main()
-    sero_df = pd.read_csv(
-        serotype_file, sep="\t",
-        usecols=columns
-    )[columns]
+
+    # with open(serotype_file) as f:
+    #     sistr_profile = json.load(f)[0]
+
+    #     h1 = str(sistr_profile.get("h1", '-'))
+    #     h2 = str(sistr_profile.get("h2", '-'))
+    #     o_antigen = str(sistr_profile.get("o_antigen", "-"))
+    #     predicted_antigenic_profile=f"{o_antigen}:{h1}:{h2}"
+    #     serovar  = sistr_profile.get("serovar", "-")
+    #     qc_status = sistr_profile.get("qc_status", "-")
+    
+    # sero_df = pd.DataFrame({
+    #     "Predicted serotype": [serovar],
+    #     "Predicted antigenic profile": [predicted_antigenic_profile],
+    #     "O antigen prediction": [o_antigen],
+    #     "H1 antigen prediction(fliC)": [h1],
+    #     "H2 antigen prediction(fljB)": [h2],
+    #     "QC status": [qc_status]})
+    
+    sero_df = parse_serotyping(serotype_file, retrun_df=True)
+    
     # Done manually to allow non-scrollable table for PDF output
     row_data = sero_df.iloc[0].values
     _div = html_tags.div()
     _table = html_tags.table(cls="table table-striped")
     _thead = html_tags.thead()
-    _thead.add(html_tags.tr([html_tags.th(c) for c in columns]))
+    _thead.add(html_tags.tr([html_tags.th(c) for c in list(sero_df.columns)]))
     _table.add(_thead)
     _tr = html_tags.tr()
     for cell in row_data:

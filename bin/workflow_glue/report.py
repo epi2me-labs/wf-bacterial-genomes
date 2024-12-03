@@ -494,10 +494,21 @@ def create_report(args, logger):
                                     "H2 antigen prediction(fljB)",
                                     "Note"
                                 ]
-                                sero_df = pd.read_csv(
-                                    files["serotype"], sep="\t",
-                                    usecols=columns
-                                )[columns]
+                                columns = [
+                                    "Predicted serotype",
+                                    "Predicted antigenic profile",
+                                    # "Predicted identification",
+                                    "O antigen prediction",
+                                    "H1 antigen prediction(fliC)",
+                                    "H2 antigen prediction(fljB)",
+                                    "QC status"
+                                ]
+                                # sero_df = pd.read_csv(
+                                #     files["serotype"], sep="\t",
+                                #     usecols=columns
+                                # )[columns]
+                                sero_df = parse_serotyping(serotype_file, retrun_df=True)
+                                
                                 DataTable.from_pandas(sero_df, use_index=False)
 
     client_fields = None

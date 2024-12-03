@@ -69,7 +69,7 @@ process coverStats {
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
-    memory "31 GB"
+    // memory "31 GB"
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
@@ -224,7 +224,20 @@ process mlstVersion {
     """
 }
 
-
+process sistrVersion {
+    label "sistr"
+    cpus 1
+    memory "2 GB"
+    // input:
+    //     path "input_version.txt"
+    output:
+        path "input_version.txt"
+    """
+    // cat "input_version.txt" >> "sistr_version.txt"
+    
+    sistr --version | cut -d' ' -f2 >> "input_version.txt"
+    """
+}
 
 process getVersions {
     label "wfbacterialgenomes"
@@ -288,7 +301,8 @@ process collect_results {
 process createRunModel {
     label "wfbacterialgenomes"
     cpus 1
-    memory "15 GB"
+    // memory "15 GB"
+    memory "5 GB"
     input:
         path "sample_results/*"
         val metadata
@@ -308,7 +322,8 @@ process createRunModel {
 process makeReport {
     label "wf_common"
     cpus 1
-    memory "15 GB"
+    // memory "15 GB"
+    memory "5 GB"
     input:
         path "versions/*"
         path "params.json"
@@ -357,7 +372,8 @@ process makeReport {
 process makePerSampleReports {
     label "wf_common"
     cpus 1
-    memory "15 GB"
+    // memory "15 GB"
+    memory "5 GB"
     input:
         path "versions.txt"
         path "params.json"
