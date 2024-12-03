@@ -228,14 +228,14 @@ process sistrVersion {
     label "sistr"
     cpus 1
     memory "2 GB"
-    // input:
-    //     path "input_version.txt"
-    output:
+    input:
         path "input_version.txt"
+    output:
+        path "sistr_version.txt"
     """
-    // cat "input_version.txt" >> "sistr_version.txt"
+    cat "input_version.txt" >> "sistr_version.txt"
     
-    sistr --version | cut -d' ' -f2 >> "input_version.txt"
+    sistr --version | sed 's/ /,/' >> "sistr_version.txt"
     """
 }
 
@@ -637,7 +637,8 @@ workflow calling_pipeline {
         prokka_version = prokkaVersion()
         medaka_version = medakaVersion(prokka_version)
         mlst_version = mlstVersion(medaka_version)
-        software_versions = getVersions(mlst_version)
+        sistr_version = sistrVersion(mlst_version)
+        software_versions = getVersions(sistr_version)
         workflow_params = getParams()
 
         // Taken from per sample reports to fill in wf.Sample
