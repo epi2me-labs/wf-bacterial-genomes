@@ -52,6 +52,7 @@ the PG header. This script is a little overkill but attempts to be robust
 with handling PG collisions and more obviously encapsulates reheadering
 behaviour, and leaves some room to do more clever things as necessary.
 """
+
 import sys
 
 from .util import wf_parser  # noqa: ABS101
@@ -95,7 +96,7 @@ class SamHeader:
     def str_to_record(line):
         """Return an appropriate struct for a given string record."""
         try:
-            record_type, record_data = line.strip().split('\t', 1)
+            record_type, record_data = line.strip().split("\t", 1)
         except ValueError:
             raise Exception(f"Record type could not be determined: {line}")
 
@@ -107,11 +108,26 @@ class SamHeader:
             return record_type, record_data
         elif record_type in ["@RG", "@PG"]:
             allowed_keys = {
-                "@RG": ["ID", "BC", "CN", "DS", "DT", "FO", "KS", "LB", "PG", "PI", "PL", "PM", "PU", "SM"],  # noqa:E501
-                "@PG": ["ID", "PN", "CL", "PP", "DS", "VN"]
+                "@RG": [
+                    "ID",
+                    "BC",
+                    "CN",
+                    "DS",
+                    "DT",
+                    "FO",
+                    "KS",
+                    "LB",
+                    "PG",
+                    "PI",
+                    "PL",
+                    "PM",
+                    "PU",
+                    "SM",
+                ],  # noqa:E501
+                "@PG": ["ID", "PN", "CL", "PP", "DS", "VN"],
             }
-            for field in record_data.strip().split('\t'):
-                k, v = field.split(':', 1)
+            for field in record_data.strip().split("\t"):
+                k, v = field.split(":", 1)
                 if k not in allowed_keys[record_type]:
                     raise Exception(f"{record_type} with bad key '{k}': {record_data}")
                 record[k] = v
@@ -126,7 +142,7 @@ class SamHeader:
         """Form a string from a header record."""
         if record_type in ["@PG", "@RG"]:
             tags = [f"{k}:{v}" for k, v in record_data.items()]
-            return f"{record_type}\t" + '\t'.join(tags)
+            return f"{record_type}\t" + "\t".join(tags)
         elif record_type in ["@SQ", "@CO"]:
             return f"{record_type}\t{record_data}"
 
@@ -231,7 +247,7 @@ class SamHeader:
 
             self.pg_records.append(record)
 
-        if len(self.sq_records) > 0 and record_type != '@SQ':
+        if len(self.sq_records) > 0 and record_type != "@SQ":
             self.reset_sq = True
 
         return record
@@ -241,13 +257,13 @@ class SamHeader:
         self.resolve_pg_chain(self.pg_records)  # check PG header
         fh.write(f"{self.hd}\n")
         for sq in self.sq_records:
-            fh.write(self.record_to_str("@SQ", sq) + '\n')
+            fh.write(self.record_to_str("@SQ", sq) + "\n")
         for rg in self.rg_records:
-            fh.write(self.record_to_str("@RG", rg) + '\n')
+            fh.write(self.record_to_str("@RG", rg) + "\n")
         for pg in self.pg_records:
-            fh.write(self.record_to_str("@PG", pg) + '\n')
+            fh.write(self.record_to_str("@PG", pg) + "\n")
         for co in self.co_records:
-            fh.write(self.record_to_str("@CO", co) + '\n')
+            fh.write(self.record_to_str("@CO", co) + "\n")
 
 
 def reheader_samstream(header_in, stream_in, stream_out, args):
@@ -264,7 +280,7 @@ def reheader_samstream(header_in, stream_in, stream_out, args):
     # read the header portion of the minimap2 stream
     wrote_header = False
     for line in stream_in:
-        if line[0] != '@':
+        if line[0] != "@":
             # write out header on first alignment
             sh.write_header(stream_out)
             wrote_header = True

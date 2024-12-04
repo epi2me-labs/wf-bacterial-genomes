@@ -135,11 +135,11 @@ class TrackBuilder:
                         tmp_samples["NO_SAMPLE"].append(fname)
         # Re-order samples in dict and add them to the list, leaving
         # NO_SAMPLE as last
-        sorted_samples = (
-            sorted([sample for sample in tmp_samples.keys() if sample != 'NO_SAMPLE'])
+        sorted_samples = sorted(
+            [sample for sample in tmp_samples.keys() if sample != "NO_SAMPLE"]
         )
-        if 'NO_SAMPLE' in tmp_samples.keys():
-            sorted_samples += ['NO_SAMPLE']
+        if "NO_SAMPLE" in tmp_samples.keys():
+            sorted_samples += ["NO_SAMPLE"]
         for sample in sorted_samples:
             self.samples[sample] = tmp_samples[sample]
 
@@ -321,7 +321,7 @@ def main(args):
     igv_builder.add_extra_opts(
         extra_alignment_opts=args.extra_alignment_opts,
         extra_variant_opts=args.extra_variant_opts,
-        extra_interval_opts=args.extra_interval_opts
+        extra_interval_opts=args.extra_interval_opts,
     )
 
     # Import files

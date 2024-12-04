@@ -16,10 +16,10 @@ class SampleType(str, Enum):
     The type of the sample
     """
 
-    no_template_control = 'no_template_control'
-    positive_control = 'positive_control'
-    negative_control = 'negative_control'
-    test_sample = 'test_sample'
+    no_template_control = "no_template_control"
+    positive_control = "positive_control"
+    negative_control = "negative_control"
+    test_sample = "test_sample"
 
 
 class FastqStats(BaseModel):
@@ -27,11 +27,11 @@ class FastqStats(BaseModel):
     A place to store read statistics
     """
 
-    n_seqs: Optional[int] = Field(None, description='The number of sequencing reads')
-    n_bases: Optional[int] = Field(None, description='The number of bases')
-    min_length: Optional[int] = Field(None, description='The minimum read length')
-    max_length: Optional[int] = Field(None, description='The maximum read length')
-    mean_quality: Optional[float] = Field(None, description='The mean read quality')
+    n_seqs: Optional[int] = Field(None, description="The number of sequencing reads")
+    n_bases: Optional[int] = Field(None, description="The number of bases")
+    min_length: Optional[int] = Field(None, description="The minimum read length")
+    max_length: Optional[int] = Field(None, description="The maximum read length")
+    mean_quality: Optional[float] = Field(None, description="The mean read quality")
 
 
 class AMRVariants(BaseModel):
@@ -42,17 +42,17 @@ class AMRVariants(BaseModel):
     gene: Optional[str] = None
     database: Optional[str] = None
     drugs: Optional[List] = Field(
-        None, description='Antimicrobials affected by variant'
+        None, description="Antimicrobials affected by variant"
     )
-    aa: Optional[str] = Field(None, description='Amino acid mutation')
-    nuc: Optional[str] = Field(None, description='nucleotide mutation')
+    aa: Optional[str] = Field(None, description="Amino acid mutation")
+    nuc: Optional[str] = Field(None, description="nucleotide mutation")
     coverage: Optional[Any] = None
     identity: Optional[Any] = None
     start: Optional[int] = None
     end: Optional[int] = None
     contig: Optional[str] = None
     pmids: Optional[str] = Field(
-        None, description='PMID or accession number for reference paper'
+        None, description="PMID or accession number for reference paper"
     )
 
 
@@ -91,7 +91,7 @@ class Annotation(BaseModel):
     gene: Optional[str] = None
     product: Optional[str] = None
     ec_number: Optional[str] = Field(
-        None, description='Identifier from the enzyme consortium catalogue'
+        None, description="Identifier from the enzyme consortium catalogue"
     )
 
 
@@ -113,10 +113,10 @@ class Coverage(BaseModel):
     """
 
     counts: Optional[int] = None
-    median: Optional[float] = Field(None, description='Median coverage')
-    mean: Optional[float] = Field(None, description='Mean coverage')
-    minimum: Optional[int] = Field(None, description='Minimum coverage')
-    maximum: Optional[int] = Field(None, description='Maximum coverage')
+    median: Optional[float] = Field(None, description="Median coverage")
+    mean: Optional[float] = Field(None, description="Mean coverage")
+    minimum: Optional[int] = Field(None, description="Minimum coverage")
+    maximum: Optional[int] = Field(None, description="Maximum coverage")
 
 
 class AntimicrobialResistance(BaseModel):
@@ -154,10 +154,10 @@ class Assembly(BaseModel):
 
     reference: Optional[str] = Field(
         None,
-        description='Name of the reference used in the assembly process. Null for de-novo',
+        description="Name of the reference used in the assembly process. Null for de-novo",
     )
     annotations: Optional[List[Annotation]] = Field(
-        None, description='Array of regions of interest identified within the assembly'
+        None, description="Array of regions of interest identified within the assembly"
     )
     variants: Optional[List[Variant]] = None
     contig: Optional[List[Contig]] = None
@@ -176,11 +176,11 @@ class Sample(BaseModel):
     A sample sheet entry and its corresponding checks and related results
     """
 
-    alias: str = Field(..., description='The alias for the sample given by the user')
-    barcode: str = Field(..., description='The physical barcode assigned to the sample')
-    sample_type: SampleType = Field(..., description='The type of the sample')
+    alias: str = Field(..., description="The alias for the sample given by the user")
+    barcode: str = Field(..., description="The physical barcode assigned to the sample")
+    sample_type: SampleType = Field(..., description="The type of the sample")
     results: ResultsContents = Field(
-        ..., description='Further specific workflow results for this sample'
+        ..., description="Further specific workflow results for this sample"
     )
 
 
@@ -189,4 +189,4 @@ class WorkflowResult(BaseModel):
     Definition for results that will be returned by this workflow. This structure will be passed through by Gizmo speaking clients as WorkflowInstance.results.
     """
 
-    samples: List[Sample] = Field(..., description='Samples in this workflow instance')
+    samples: List[Sample] = Field(..., description="Samples in this workflow instance")

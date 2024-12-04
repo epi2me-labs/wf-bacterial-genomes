@@ -25,7 +25,7 @@ def main(args):
         "efaecalis": "enterococcus faecalis",
         "neisseria": "neisseria gonorrhoeae",
         "senterica_achtman_2": "salmonella",
-        "ecoli": 'escherichia_coli',
+        "ecoli": "escherichia_coli",
         "klebsiella": "klebsiella",
         "koxytoca": "klebsiella",
         "kaerogenes": "klebsiella",
@@ -43,7 +43,5 @@ def main(args):
 def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("pointfinder_species")
-    parser.add_argument(
-        "--mlst_json",
-        help="MLST json results file")
+    parser.add_argument("--mlst_json", help="MLST json results file")
     return parser

@@ -1,4 +1,5 @@
 """Helpers for the auto-generated schema code."""
+
 from pydantic import BaseModel as PydanticBaseModel
 
 

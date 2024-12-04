@@ -19,18 +19,18 @@ def main(args):
             with open(json_file, "r") as f:
                 samples.append(wf.Sample(**json.loads(f.read())))
         else:
-            samples.append(wf.Sample(
-                alias=meta["alias"],
-                barcode=meta["barcode"],
-                sample_type=meta["type"],
-                results=dict()
-            ))
+            samples.append(
+                wf.Sample(
+                    alias=meta["alias"],
+                    barcode=meta["barcode"],
+                    sample_type=meta["type"],
+                    results=dict(),
+                )
+            )
 
-    workflow = wf.WorkflowResult(
-        samples=samples
-    )
+    workflow = wf.WorkflowResult(samples=samples)
 
-    with open(args.output, 'w') as f:
+    with open(args.output, "w") as f:
         f.write(json.dumps(workflow.dict(), indent=4))
 
     logger.info(f"Run model written to {args.output}")
@@ -39,9 +39,7 @@ def main(args):
 def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("run_model")
-    parser.add_argument(
-        "--jsons", nargs="+", help="sample results json file(s)."
-    )
+    parser.add_argument("--jsons", nargs="+", help="sample results json file(s).")
     parser.add_argument("--metadata")
     parser.add_argument("--output", help="Report output filename")
     return parser

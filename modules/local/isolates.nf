@@ -117,7 +117,8 @@ process serotyping {
     input: 
         tuple val(meta), path("input_genome.fasta.gz"), val(species)
     output:
-        tuple val(meta), path("${meta.alias}.serotype_results.tsv")
+        // tuple val(meta), path("${meta.alias}.serotype_results.tsv")
+        tuple val(meta), path("${meta.alias}.serotype_results.json")
     script:
     """
     gunzip -c input_genome.fasta.gz > input_genome.fasta
@@ -129,7 +130,7 @@ process serotyping {
                 --cgmlst-profiles "${meta.alias}.profile" -f json \
                 -o "${meta.alias}_sistr.json" input_genome.fasta
 
-    cp -r "${meta.alias}_sistr.json" "${meta.alias}.serotype_results.tsv"
+    cp -r "${meta.alias}_sistr.json" "${meta.alias}.serotype_results.json"
     """
 }  
 

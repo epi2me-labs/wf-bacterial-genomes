@@ -1,17 +1,16 @@
 """Create a report for each sample."""
+
 import json
 import os
 
 from dominate import tags as html_tags
 from ezcharts.components.reports import labs
+
 import pandas as pd
 
 from .collect_results import gather_sample_files, parse_serotyping  # noqa: ABS101
 from .parsers import parse_mlst  # noqa: ABS101
-from .process_resfinder_iso import (  # noqa: ABS101
-    get_acquired_data,
-    get_point_data
-)
+from .process_resfinder_iso import get_acquired_data, get_point_data  # noqa: ABS101
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
@@ -32,12 +31,12 @@ def lead_section(text):
     """From a dict of key value pairs make a text section."""
     _div = html_tags.div()
     for key, value in text.items():
-        if key == 'header':
+        if key == "header":
             _div.add(html_tags.h3(value))
         else:
             _div.add(
                 html_tags.small(key.replace("_", " ").upper(), cls="text-muted"),
-                html_tags.h5(value if value is not None else "None")
+                html_tags.h5(value if value is not None else "None"),
             )
     return _div
 
@@ -64,8 +63,8 @@ def get_run_summary(files, reference=None):
         run_dict["taxon"] = taxon.capitalize()
     else:
         run_dict["reference"] = os.path.basename(reference)
-    run_dict["total_yield"] = convert_bp(total_yield),
-    run_dict["median_read_length"] = convert_bp(median_read_length),
+    run_dict["total_yield"] = (convert_bp(total_yield),)
+    run_dict["median_read_length"] = (convert_bp(median_read_length),)
     run_dict["median_read_quality"] = median_read_quality
     return run_dict
 
@@ -125,7 +124,7 @@ def ref_section(total):
         html_tags.tr(
             html_tags.th("Contig"),
             html_tags.th("Total length"),
-            [html_tags.th(f"% Coverage at {t}x") for t in thresholds]
+            [html_tags.th(f"% Coverage at {t}x") for t in thresholds],
         )
     )
     _table.add(_thead)
@@ -145,20 +144,23 @@ def amr_section(resfinder_json, html_id):
         resfinder_data_raw = json.load(fh)
     acquired_data = get_acquired_data(resfinder_data_raw)
     point_data = get_point_data(resfinder_data_raw)
-    if (not acquired_data and not point_data):
+    if not acquired_data and not point_data:
         return html_tags.p("No AMR genes detected in sample.")
     _div = html_tags.div(cls="accordion-item")
     # Point mutations
-    row = 0   # Fault if gene name contains "'" (e.g aac(2')-Ic
+    row = 0  # Fault if gene name contains "'" (e.g aac(2')-Ic
     for gene, evidence in point_data.items():
         if not evidence:
             continue
         row += 1
         drugs = {drug.capitalize() for mut in evidence for drug in mut["drugs"]}
-        _head = html_tags.h2(id=f"{row}", style="border: 1px solid rgba(0,0,0,.125);\
+        _head = html_tags.h2(
+            id=f"{row}",
+            style="border: 1px solid rgba(0,0,0,.125);\
                             border-collapse: collapse;\
                              padding:0;\
-                             margin-bottom:0")
+                             margin-bottom:0",
+        )
         _button = html_tags.button(
             html_tags.span(html_tags.b(gene)),
             html_tags.span(
@@ -169,9 +171,10 @@ def amr_section(resfinder_json, html_id):
                 html_tags.span(
                     len(evidence),
                     cls="position-absolute badge rounded-pill bg-danger",
-                    style="top:8px"
-                    ),
-                cls="badge bg-primary"),
+                    style="top:8px",
+                ),
+                cls="badge bg-primary",
+            ),
             cls="accordion-button collapsed",
             type="button",
             data_bs_toggle="collapse",
@@ -181,8 +184,8 @@ def amr_section(resfinder_json, html_id):
             style="display: grid; \
                     align-items: center;\
                     grid-template-columns: 150px 1fr max-content max-content;\
-                    grid-gap: 25px"
-            )
+                    grid-gap: 25px",
+        )
         _head.add(_button)
         _div.add(_head)
         _div1 = html_tags.div(
@@ -190,7 +193,8 @@ def amr_section(resfinder_json, html_id):
             cls="accordion-collapse collapse",
             fr=f"{row}",
             aria_labelledby=f"{row}",
-            data_bs_parent=f"#{html_id}")
+            data_bs_parent=f"#{html_id}",
+        )
         _div2 = html_tags.div(cls="accordion body")
         _table = html_tags.table(cls="table table-striped")
         _thead = html_tags.thead()
@@ -207,7 +211,7 @@ def amr_section(resfinder_json, html_id):
             _tr.add(
                 html_tags.td("; ".join(d.capitalize() for d in mutation["drugs"])),
                 html_tags.td(mutation["aa"]),
-                html_tags.td(mutation["nuc"].upper())
+                html_tags.td(mutation["nuc"].upper()),
             )
             _table.add(_tr)
         _div2.add(_table)
@@ -217,26 +221,30 @@ def amr_section(resfinder_json, html_id):
     # Acquired resistance
     for gene, evidence in acquired_data.items():
         row += 1
-        _head = html_tags.h2(id="f{row}", style="border: 1px solid rgba(0,0,0,.125);\
+        _head = html_tags.h2(
+            id="f{row}",
+            style="border: 1px solid rgba(0,0,0,.125);\
                             border-collapse: collapse;\
                             padding:0;\
-                            margin-bottom:0")
+                            margin-bottom:0",
+        )
         _button = html_tags.button(
             html_tags.span(html_tags.b(gene)),
             html_tags.span(
-                {html_tags.span(
-                    d.capitalize(),
-                    cls="badge bg-dark me-1"
-                    ) for d in evidence["drugs"]}
-                ),
+                {
+                    html_tags.span(d.capitalize(), cls="badge bg-dark me-1")
+                    for d in evidence["drugs"]
+                }
+            ),
             html_tags.span(
                 "ResFinder",
                 html_tags.span(
                     1,  # TODO add evidence as list for multiple shits of gene
                     cls="position-absolute badge rounded-pill bg-danger",
-                    style="top:8px"
-                    ),
-                cls="badge bg-secondary"),
+                    style="top:8px",
+                ),
+                cls="badge bg-secondary",
+            ),
             cls="accordion-button collapsed",
             type="button",
             data_bs_toggle="collapse",
@@ -246,7 +254,8 @@ def amr_section(resfinder_json, html_id):
             style="display: grid;\
                 grid-template-columns: 150px 1fr max-content max-content;\
                 align-items: center;\
-                grid-gap: 25px")
+                grid-gap: 25px",
+        )
         _head.add(_button)
         _div.add(_head)
         _div1 = html_tags.div(
@@ -254,8 +263,8 @@ def amr_section(resfinder_json, html_id):
             cls="accordion-collapse collapse",
             fr=f"{row}",
             aria_labelledby=f"{row}",
-            data_bs_parent=f"#{html_id}"
-            )
+            data_bs_parent=f"#{html_id}",
+        )
         _div2 = html_tags.div(cls="accordion body")
         _table = html_tags.table(cls="table table-striped")
         _thead = html_tags.thead()
@@ -263,7 +272,7 @@ def amr_section(resfinder_json, html_id):
             html_tags.tr(
                 html_tags.th("Antimicrobial resistance"),
                 html_tags.th("Identity"),
-                html_tags.th("Coverage")
+                html_tags.th("Coverage"),
             )
         )
         _table.add(_thead)
@@ -271,7 +280,7 @@ def amr_section(resfinder_json, html_id):
         _tr.add(
             html_tags.td("; ".join(d.capitalize() for d in evidence["drugs"])),
             html_tags.td(evidence["identity"]),
-            html_tags.td(evidence["coverage"])
+            html_tags.td(evidence["coverage"]),
         )
         _table.add(_tr)
         _div2.add(_table)
@@ -284,10 +293,12 @@ def mlst_section(mlst_file):
     """Extract mlst results."""
     mlst_df = parse_mlst(mlst_file)
     if mlst_df is None:
-        return html_tags.div(html_tags.p(
-            "MLST was unable to identify a typing scheme for this sample. "
-            "Please check coverage of sample."
-            ))
+        return html_tags.div(
+            html_tags.p(
+                "MLST was unable to identify a typing scheme for this sample. "
+                "Please check coverage of sample."
+            )
+        )
     col_names = mlst_df.columns
     row_data = mlst_df.iloc[0].values
     # C apitalise all non-gene columns
@@ -306,59 +317,10 @@ def mlst_section(mlst_file):
     return _div
 
 
-# def serotype_section(serotype_file):
-#     """Extract serotyping results."""
-#     columns = [
-#         "Predicted serotype",
-#         "Predicted antigenic profile",
-#         "O antigen prediction",
-#         "H1 antigen prediction(fliC)",
-#         "H2 antigen prediction(fljB)",
-#         "QC"
-#     ]
-#     # Check for file is made before section created in main()
-#     sero_df = pd.read_csv(
-#         serotype_file, sep="\t",
-#         usecols=columns
-#     )[columns]
-
-#     # Done manually to allow non-scrollable table for PDF output
-#     row_data = sero_df.iloc[0].values
-#     _div = html_tags.div()
-#     _table = html_tags.table(cls="table table-striped")
-#     _thead = html_tags.thead()
-#     _thead.add(html_tags.tr([html_tags.th(c) for c in columns]))
-#     _table.add(_thead)
-#     _tr = html_tags.tr()
-#     for cell in row_data:
-#         _tr.add(html_tags.td(cell))
-#     _table.add(_tr)
-#     _div.add(_table)
-#     return _div
-
 def serotype_section(serotype_file):
     """Extract serotyping results."""
+    sero_df = parse_serotyping(serotype_file, return_df=True)
 
-    # with open(serotype_file) as f:
-    #     sistr_profile = json.load(f)[0]
-
-    #     h1 = str(sistr_profile.get("h1", '-'))
-    #     h2 = str(sistr_profile.get("h2", '-'))
-    #     o_antigen = str(sistr_profile.get("o_antigen", "-"))
-    #     predicted_antigenic_profile=f"{o_antigen}:{h1}:{h2}"
-    #     serovar  = sistr_profile.get("serovar", "-")
-    #     qc_status = sistr_profile.get("qc_status", "-")
-    
-    # sero_df = pd.DataFrame({
-    #     "Predicted serotype": [serovar],
-    #     "Predicted antigenic profile": [predicted_antigenic_profile],
-    #     "O antigen prediction": [o_antigen],
-    #     "H1 antigen prediction(fliC)": [h1],
-    #     "H2 antigen prediction(fljB)": [h2],
-    #     "QC status": [qc_status]})
-    
-    sero_df = parse_serotyping(serotype_file, retrun_df=True)
-    
     # Done manually to allow non-scrollable table for PDF output
     row_data = sero_df.iloc[0].values
     _div = html_tags.div()
@@ -382,28 +344,27 @@ def main(args):
         "wf-bacterial-genomes",
         args.params,
         args.versions,
-        args.wf_version
+        args.wf_version,
     )
 
     files = gather_sample_files(args.sample_alias, args.data_dir)
 
-    lead_summary = lead_section(dict(
-        sample=args.sample_alias,
-        barcode=args.sample_barcode,
-        run=args.wf_session,
-        version=args.wf_version,
-    ))
+    lead_summary = lead_section(
+        dict(
+            sample=args.sample_alias,
+            barcode=args.sample_barcode,
+            run=args.wf_session,
+            version=args.wf_version,
+        )
+    )
     with open(args.params) as fh:
         params_data = json.load(fh)
 
-    run_summary_dict = get_run_summary(
-        files,
-        params_data["reference"]
-        )
+    run_summary_dict = get_run_summary(files, params_data["reference"])
 
     run_summary = lead_section(run_summary_dict)
 
-    with report.add_section('Workflow details', 'Workflow', True):
+    with report.add_section("Workflow details", "Workflow", True):
         with html_tags.div(cls="row"):
             html_tags.div(lead_summary, cls="col-sm-12", style="float: left; width:50%")
             html_tags.div(run_summary, cls="col-sm-12", style="float: right; width:50%")
@@ -420,7 +381,7 @@ def main(args):
             with html_tags.div(cls="row"):
                 serotype_section(files["serotype"])
 
-    with report.add_section('Antimicrobial resistance prediction', 'AMR', True):
+    with report.add_section("Antimicrobial resistance prediction", "AMR", True):
         with html_tags.div(cls="accordion", id="accordionTable"):
             if files["amr"]:
                 html_tags.p(
@@ -443,7 +404,7 @@ def main(args):
                 else:
                     html_tags.p(
                         "No coverage information, please check input data quality."
-                        )
+                    )
             else:
                 html_tags.p(
                     "As no reference was provided the reads were assembled"
@@ -455,7 +416,7 @@ def main(args):
                     html_tags.p(
                         """No denovo assembly for sample.
                          Please check input data quality."""
-                        )
+                    )
 
     report.write(args.output)
     logger.info(f"Report written to {args.output}.")
@@ -486,6 +447,6 @@ def argparser():
     parser.add_argument("--data_dir", required=True, help="Analysis results directory")
     parser.add_argument("--wf_session", required=True)
     parser.add_argument(
-        "--wf_version", default="unknown",
-        help="version of the executed workflow")
+        "--wf_version", default="unknown", help="version of the executed workflow"
+    )
     return parser

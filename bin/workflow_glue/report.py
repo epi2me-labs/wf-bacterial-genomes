@@ -1,4 +1,5 @@
 """Create workflow report."""
+
 import json
 import os
 
@@ -14,10 +15,12 @@ from ezcharts.layout.snippets import Grid, Tabs
 from ezcharts.layout.snippets.table import DataTable
 from ezcharts.plots import util as ezc_util
 
+from .collect_results import parse_serotyping
+
 from .parsers import (  # noqa: ABS101
     parse_bcftools_stats_multi,
     parse_prokka_gff,
-    parse_mlst
+    parse_mlst,
 )  # noqa: I100,I202
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
@@ -34,7 +37,8 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
         "resfinder": ["resfinder", "resfinder_results.txt"],
         "flye_stats": ["flye_stats", "flye_stats.tsv"],
         "mlst": ["mlst", "mlst.json"],
-        "serotype": ["serotype", "serotype_results.tsv"]
+        # "serotype": ["serotype", "serotype_results.tsv"]
+        "serotype": ["serotype", "serotype_results.json"],
     }
     for sample_name in sorted(sample_names):
         files = {}
@@ -43,14 +47,11 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
             file = os.path.join(subdir, f"{sample_name}.{suffix}")
 
             if not os.path.exists(file):
-                if (
-                    file_type in ("resfinder", "mlst", "serotype")
-                    and isolates_mode
-                ):
+                if file_type in ("resfinder", "mlst", "serotype") and isolates_mode:
                     logger.error(
                         f"Isolates file for '{file_type}' missing "
                         f"for sample '{sample_name}' - Check status of analysis."
-                        )
+                    )
                 file = None
             files[file_type] = file
         # We check depths after all files collected, as they are allowed to be empty
@@ -93,7 +94,7 @@ def get_depth_plots(total, fwd, rev):
             y="depth",
             hue="hue",
             title=ref,
-            marker=False
+            marker=False,
         )
         p._fig.xaxis.axis_label = "Position along reference"
         p._fig.yaxis.axis_label = "Sequencing depth / Bases"
@@ -190,8 +191,11 @@ def get_indel_length_histogram(indel_lengths):
     # now plot the histogram with one bar at each position in `nlength` and bar heights
     # corresponding to `count`
     p = ezc.histplot(
-        data=plt_data["nlength"], x="nlength", discrete=True, weights=plt_data["count"],
-        title="Insertion and deletion lengths"
+        data=plt_data["nlength"],
+        x="nlength",
+        discrete=True,
+        weights=plt_data["count"],
+        title="Insertion and deletion lengths",
     )
     # labels, formatting
     p._fig.x_range.start = plt_data["nlength"].min() - 1
@@ -208,7 +212,7 @@ def create_report(args, logger):
         "wf-bacterial-genomes",
         args.params,
         args.versions,
-        args.wf_version
+        args.wf_version,
     )
     samples = sorted(args.sample_ids)
 
@@ -216,7 +220,7 @@ def create_report(args, logger):
     # below)
     sample_files = gather_sample_files(
         samples, args.denovo, args.prokka, args.isolates, logger
-        )
+    )
 
     if args.stats:
         sample_ids_with_stats = sorted(
@@ -249,7 +253,8 @@ def create_report(args, logger):
                     with tabs.add_dropdown_tab(name):
                         if files["flye_stats"] is None:
                             html_tags.p(
-                                f"Flye failed to produce an assembly for {name}.")
+                                f"Flye failed to produce an assembly for {name}."
+                            )
                         else:
                             renamed_columns = {
                                 "#seq_name": "Contig",
@@ -257,12 +262,12 @@ def create_report(args, logger):
                                 "cov.": "Coverage",
                                 "circ.": "Circular",
                                 "repeat": "Repeat",
-                                "mult.": "Multiplicity"
+                                "mult.": "Multiplicity",
                             }
                             flye_df = pd.read_csv(
                                 files["flye_stats"],
                                 sep="\t",
-                                usecols=[0, 1, 2, 3, 4, 5]
+                                usecols=[0, 1, 2, 3, 4, 5],
                             ).rename(columns=renamed_columns)
                             DataTable.from_pandas(flye_df, use_index=False)
 
@@ -279,18 +284,18 @@ def create_report(args, logger):
         with tabs.add_dropdown_menu():
             for name, files in sample_files.items():
                 with tabs.add_dropdown_tab(name):
-                    if files["total_depth"] \
-                        and files["fwd_depth"] \
-                            and files["rev_depth"]:
+                    if (
+                        files["total_depth"]
+                        and files["fwd_depth"]
+                        and files["rev_depth"]
+                    ):
                         depth_plots = get_depth_plots(
                             files["total_depth"], files["fwd_depth"], files["rev_depth"]
                         )
                         for plot in depth_plots:
                             EZChart(plot, "epi2melabs")
                     else:
-                        html_tags.p(
-                            """No coverage data for sample, check assembly"""
-                        )
+                        html_tags.p("""No coverage data for sample, check assembly""")
 
     if not args.denovo:
         with report.add_section("Variant calling", "Variants"):
@@ -448,19 +453,23 @@ def create_report(args, logger):
                         # `str.capitalize()` also changes all-upper-case strings
                         # (e.g. "ID" to "Id")
                         if files["mlst"] is None:
-                            html_raw("""
+                            html_raw(
+                                """
                 <b>
                 No assembly available for MLST.
                 Please check coverage of sample.</b>
-                """)
+                """
+                            )
                             break
                         mlst_df = parse_mlst(files["mlst"])
                         if mlst_df is None:
-                            html_raw("""
+                            html_raw(
+                                """
                 <b>
                 MLST was unable to identify scheme for this sample.
                 Please check coverage of sample.</b>
-                """)
+                """
+                            )
                         else:
                             mlst_df = mlst_df.rename(
                                 columns=lambda col: col[0].upper() + col[1:]
@@ -492,7 +501,7 @@ def create_report(args, logger):
                                     "O antigen prediction",
                                     "H1 antigen prediction(fliC)",
                                     "H2 antigen prediction(fljB)",
-                                    "Note"
+                                    "Note",
                                 ]
                                 columns = [
                                     "Predicted serotype",
@@ -501,14 +510,13 @@ def create_report(args, logger):
                                     "O antigen prediction",
                                     "H1 antigen prediction(fliC)",
                                     "H2 antigen prediction(fljB)",
-                                    "QC status"
+                                    "QC status",
                                 ]
-                                # sero_df = pd.read_csv(
-                                #     files["serotype"], sep="\t",
-                                #     usecols=columns
-                                # )[columns]
-                                sero_df = parse_serotyping(serotype_file, retrun_df=True)
-                                
+
+                                sero_df = parse_serotyping(
+                                    files["serotype"], return_df=True
+                                )
+
                                 DataTable.from_pandas(sero_df, use_index=False)
 
     client_fields = None
@@ -522,14 +530,17 @@ def create_report(args, logger):
         with report.add_section("Workflow Metadata", "Workflow Metadata"):
             if client_fields:
                 df = pd.DataFrame.from_dict(
-                    client_fields, orient="index", columns=["Value"])
+                    client_fields, orient="index", columns=["Value"]
+                )
                 df.index.name = "Key"
 
                 # Examples from the client had lists as values so join lists
                 # for better display
-                df['Value'] = df.Value.apply(
-                    lambda x: ', '.join(
-                        [str(i) for i in x]) if isinstance(x, list) else x)
+                df["Value"] = df.Value.apply(
+                    lambda x: (
+                        ", ".join([str(i) for i in x]) if isinstance(x, list) else x
+                    )
+                )
 
                 DataTable.from_pandas(df)
             else:
@@ -563,8 +574,9 @@ def argparser():
         "--prokka", action="store_true", help="Prokka analysis was performed."
     )
     parser.add_argument(
-        "--isolates", action="store_true",
-        help="Resfinder antimicrobial resistance analysis was performed."
+        "--isolates",
+        action="store_true",
+        help="Resfinder antimicrobial resistance analysis was performed.",
     )
     parser.add_argument(
         "--versions",
@@ -580,10 +592,13 @@ def argparser():
     parser.add_argument("--output", help="Report output filename")
     parser.add_argument("--sample_ids", nargs="+")
     parser.add_argument(
-        "--client_fields", default=None, required=False,
-        help="A JSON file containing useful key/values for display")
+        "--client_fields",
+        default=None,
+        required=False,
+        help="A JSON file containing useful key/values for display",
+    )
     parser.add_argument(
-        "--wf_version", default='unknown',
-        help="version of the executed workflow")
+        "--wf_version", default="unknown", help="version of the executed workflow"
+    )
 
     return parser

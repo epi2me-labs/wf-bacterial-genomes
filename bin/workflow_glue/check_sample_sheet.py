@@ -1,4 +1,5 @@
 """Check if a sample sheet is valid."""
+
 import codecs
 import csv
 import os
@@ -15,7 +16,7 @@ from .util import get_named_logger, wf_parser  # noqa: ABS101
 # See CW-2310
 def determine_codec(f):
     """Peek at a file and return an appropriate reading codec."""
-    with open(f, 'rb') as f_bytes:
+    with open(f, "rb") as f_bytes:
         # Could use chardet here if we need to expand codec support
         initial_bytes = f_bytes.read(8)
 
@@ -40,7 +41,10 @@ def main(args):
     sample_types = []
     analysis_groups = []
     allowed_sample_types = [
-        "test_sample", "positive_control", "negative_control", "no_template_control"
+        "test_sample",
+        "positive_control",
+        "negative_control",
+        "no_template_control",
     ]
 
     if not os.path.exists(args.sample_sheet) or not os.path.isfile(args.sample_sheet):
@@ -61,7 +65,7 @@ def main(args):
                     "The sample sheet has to be a CSV file.\n"
                     "Please verify that the sample sheet is a CSV file.\n"
                     f"Parsing error: {e}"
-                 )
+                )
 
                 sys.exit()
 
@@ -102,7 +106,7 @@ def main(args):
 
     # check barcodes are correct format
     for barcode in barcodes:
-        if not re.match(r'^barcode\d\d+$', barcode):
+        if not re.match(r"^barcode\d\d+$", barcode):
             sys.stdout.write("values in 'barcode' column are incorrect format")
             sys.exit()
 
@@ -139,7 +143,8 @@ def main(args):
                     sys.exit()
                 if sample_types.count(required_type) < 1:
                     sys.stdout.write(
-                        f"Sample sheet requires at least 1 of {required_type}")
+                        f"Sample sheet requires at least 1 of {required_type}"
+                    )
                     sys.exit()
     if analysis_groups:
         # if there was a "analysis_group" column, make sure it had values for all
@@ -160,7 +165,7 @@ def argparser():
     parser.add_argument(
         "--required_sample_types",
         help="List of required sample types. Each sample type provided must "
-             "appear at least once in the sample sheet",
-        nargs="*"
+        "appear at least once in the sample sheet",
+        nargs="*",
     )
     return parser

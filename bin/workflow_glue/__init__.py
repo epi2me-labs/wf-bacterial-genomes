@@ -1,4 +1,5 @@
 """Workflow Python code."""
+
 import argparse
 import glob
 import importlib
@@ -48,17 +49,21 @@ def cli():
     logger = get_main_logger(_package_name)
     logger.info("Bootstrapping CLI.")
     parser = argparse.ArgumentParser(
-        'wf-glue',
+        "wf-glue",
         parents=[_log_level()],
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
     parser.add_argument(
-        '-v', '--version', action='version',
-        version='%(prog)s {}'.format(__version__))
+        "-v", "--version", action="version", version="%(prog)s {}".format(__version__)
+    )
 
     subparsers = parser.add_subparsers(
-        title='subcommands', description='valid commands',
-        help='additional help', dest='command')
+        title="subcommands",
+        description="valid commands",
+        help="additional help",
+        dest="command",
+    )
     subparsers.required = True
 
     # importing everything can take time, try to shortcut
@@ -72,8 +77,7 @@ def cli():
 
     # add all module parsers to main CLI
     for name, module in components.items():
-        p = subparsers.add_parser(
-            name.split(".")[-1], parents=[module.argparser()])
+        p = subparsers.add_parser(name.split(".")[-1], parents=[module.argparser()])
         p.set_defaults(func=module.main)
 
     args = parser.parse_args()

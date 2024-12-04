@@ -7,10 +7,7 @@ def get_databases(json_file):
     db_dict = dict()
     databases = json_file["databases"]
     for k, v in databases.items():
-        db_dict[k] = {
-            "name": v["database_name"],
-            "db_version": v["database_version"]
-            }
+        db_dict[k] = {"name": v["database_name"], "db_version": v["database_version"]}
     return db_dict
 
 
@@ -32,8 +29,8 @@ def get_acquired_data(json_file):
             "contig": v["query_id"],
             "identity": round(v["identity"], 3),
             "coverage": round(v["coverage"], 3),
-            "pmids": ", ".join(v["pmids"])
-            }
+            "pmids": ", ".join(v["pmids"]),
+        }
     return acquired_dict
 
 
@@ -47,16 +44,18 @@ def get_point_data(json_file):
         if gene not in point_dict:
             point_dict[gene] = list()
         if v["phenotypes"]:
-            point_dict[gene].append({
-                "gene": k.split(";;")[0],
-                "drugs": v["phenotypes"],
-                "start": v["ref_start_pos"],
-                "end": v["ref_end_pos"],
-                "database": db_dict[v["ref_database"]]["name"],
-                "aa": v["seq_var"],
-                "nuc": f"{v['ref_codon']}>{v['var_codon']}",
-                "pmids": ", ".join(v["pmids"])
-            })
+            point_dict[gene].append(
+                {
+                    "gene": k.split(";;")[0],
+                    "drugs": v["phenotypes"],
+                    "start": v["ref_start_pos"],
+                    "end": v["ref_end_pos"],
+                    "database": db_dict[v["ref_database"]]["name"],
+                    "aa": v["seq_var"],
+                    "nuc": f"{v['ref_codon']}>{v['var_codon']}",
+                    "pmids": ", ".join(v["pmids"]),
+                }
+            )
     return point_dict
 
 

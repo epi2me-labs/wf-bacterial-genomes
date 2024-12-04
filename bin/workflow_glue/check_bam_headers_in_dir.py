@@ -31,16 +31,19 @@ def main(args):
         with pysam.AlignmentFile(xam_file, check_sq=False) as f:
             # compare only the SN/LN/M5 elements of SQ to avoid labelling XAM with
             # same reference but different SQ.UR as mixed_header (see CW-4842)
-            sq_lines = [{
-                "SN": sq["SN"],
-                "LN": sq["LN"],
-                "M5": sq.get("M5"),
-            } for sq in f.header.get("SQ", [])]
+            sq_lines = [
+                {
+                    "SN": sq["SN"],
+                    "LN": sq["LN"],
+                    "M5": sq.get("M5"),
+                }
+                for sq in f.header.get("SQ", [])
+            ]
             hd_lines = f.header.get("HD")
         # Check if it is sorted.
         # When there is more than one BAM, merging/sorting
         # will happen regardless of this flag.
-        if hd_lines is not None and hd_lines.get('SO') == 'coordinate':
+        if hd_lines is not None and hd_lines.get("SO") == "coordinate":
             sorted_xam = True
         if first_sq_lines is None:
             # this is the first file
@@ -57,9 +60,9 @@ def main(args):
     # write `is_unaligned` and `mixed_headers` out so that they can be set as env.
     # variables
     sys.stdout.write(
-        f"IS_UNALIGNED={int(is_unaligned)};" +
-        f"MIXED_HEADERS={int(mixed_headers)};" +
-        f"IS_SORTED={int(sorted_xam)}"
+        f"IS_UNALIGNED={int(is_unaligned)};"
+        + f"MIXED_HEADERS={int(mixed_headers)};"
+        + f"IS_SORTED={int(sorted_xam)}"
     )
     logger.info(f"Checked (u)BAM headers in '{args.input_path}'.")
 

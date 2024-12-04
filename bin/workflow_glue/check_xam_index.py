@@ -30,9 +30,7 @@ def main(args):
     # Check if a XAM has a valid index
     has_valid_index = validate_xam_index(args.input_xam)
     # write `has_valid_index` out so that they can be set as env.
-    sys.stdout.write(
-        f"HAS_VALID_INDEX={int(has_valid_index)}"
-    )
+    sys.stdout.write(f"HAS_VALID_INDEX={int(has_valid_index)}")
     logger.info(f"Checked (u)BAM index for: '{args.input_xam}'.")
 
 

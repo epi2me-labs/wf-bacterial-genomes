@@ -7,13 +7,8 @@ import numpy as np
 import pandas as pd
 import vcf
 import workflow_glue.results_schema as wf
-from .parsers import (  # noqa: ABS101
-    parse_prokka_gff
-)
-from .process_resfinder_iso import (  # noqa: ABS101
-    get_acquired_data,
-    get_point_data
-)
+from .parsers import parse_prokka_gff  # noqa: ABS101
+from .process_resfinder_iso import get_acquired_data, get_point_data  # noqa: ABS101
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
@@ -27,19 +22,18 @@ def gather_sample_files(alias, data_dir):
         "mlst": os.path.join(data_dir, f"{alias}.mlst.json"),
         "amr": os.path.join(
             data_dir, f"{alias}_resfinder_results/{alias}_resfinder.json"
-            ),
+        ),
         "fastcat": os.path.join(data_dir, "fastcat_stats/per-read-stats.tsv.gz"),
         "len_hist": os.path.join(data_dir, "fastcat_stats/length.hist"),
         "qual_hist": os.path.join(data_dir, "fastcat_stats/quality.hist"),
         "flye": os.path.join(data_dir, f"{alias}_flye_stats.tsv"),
-        "serotype": os.path.join(data_dir, f"{alias}.serotype_results.tsv")
+        "serotype": os.path.join(data_dir, f"{alias}.serotype_results.json"),
     }
 
     # Return none if file does not exist
     files = {
-        section: (
-            file if os.path.exists(file) else None
-            ) for section, file in files.items()
+        section: (file if os.path.exists(file) else None)
+        for section, file in files.items()
     }
 
     return files
@@ -52,7 +46,8 @@ def fastcat_stats(len_hist, qual_hist):
     mean_qual = 0
     if not qual_df.empty:
         mean_qual = np.average(
-            qual_df["upper"] - qual_df["lower"], weights=qual_df["count"])
+            qual_df["upper"] - qual_df["lower"], weights=qual_df["count"]
+        )
 
     n_seqs = 0
     n_bases = 0
@@ -70,7 +65,7 @@ def fastcat_stats(len_hist, qual_hist):
         n_bases=n_bases,
         min_length=min_length,
         max_length=max_length,
-        mean_quality=mean_qual
+        mean_quality=mean_qual,
     )
 
     return result
@@ -84,64 +79,54 @@ def parse_mlst(mlst_file):
     alleles = []
     if mlst["alleles"]:
         for schema_id, allele in mlst["alleles"].items():
-            alleles.append(wf.SequenceTypeSchema(
-                schema_identifier=schema_id,
-                allele_variant=allele
-            ))
+            alleles.append(
+                wf.SequenceTypeSchema(
+                    schema_identifier=schema_id, allele_variant=allele
+                )
+            )
     result = wf.MLST(
         detected_species=mlst["scheme"],
         sequence_type=mlst["sequence_type"],
-        typing_schema=alleles
+        typing_schema=alleles,
     )
 
     return result
 
 
-# def parse_serotyping(serotype_file):
-#     """Extract serotyping information from SeqSero2."""
-#     sero_df = pd.read_csv(serotype_file, sep="\t")
-#     # columns always present in seqsero output
-#     serotype = wf.Serotype(
-#         predicted_serotype=sero_df["Predicted serotype"].squeeze(),
-#         predicted_antigenic_profile=sero_df["Predicted antigenic profile"].squeeze(),
-#         o_antigen_predicition=sero_df["O antigen prediction"].squeeze(),
-#         h1_antigen_prediction=sero_df["H1 antigen prediction(fliC)"].squeeze(),
-#         h2_antigen_prediction=sero_df["H2 antigen prediction(fljB)"].squeeze()
-#     )
-#     return serotype
-
-
-def parse_serotyping(serotype_file, retrun_df=False):
+def parse_serotyping(serotype_file, return_df=False):
     """Extract serotyping information from SISTR."""
     with open(serotype_file) as f:
         sistr_profile = json.load(f)[0]
-
-        h1 = str(sistr_profile.get("h1", '-'))
-        h2 = str(sistr_profile.get("h2", '-'))
+        h1 = str(sistr_profile.get("h1", "-"))
+        h2 = str(sistr_profile.get("h2", "-"))
         o_antigen = str(sistr_profile.get("o_antigen", "-"))
-        serovar  = sistr_profile.get("serovar", "-")
+        serovar = sistr_profile.get("serovar", "-")
         qc_status = sistr_profile.get("qc_status", "-")
+        predicted_antigenic_profile = f"{o_antigen}:{h1}:{h2}"
 
-    serotype = wf.Serotype(
-        predicted_serotype=serovar,
-        predicted_antigenic_profile=f"{o_antigen}:{h1}:{h2}",
-        o_antigen_predicition=o_antigen,
-        h1_antigen_prediction=h1,
-        h2_antigen_prediction=h2,
-        qc_status=qc_status
-    )
+        serotype = wf.Serotype(
+            predicted_serotype=serovar,
+            predicted_antigenic_profile=predicted_antigenic_profile,
+            o_antigen_predicition=o_antigen,
+            h1_antigen_prediction=h1,
+            h2_antigen_prediction=h2,
+            qc_status=qc_status,
+        )
 
-    if retrun_df is True:
-        sero_df = pd.DataFrame({
-            "Predicted serotype": [serovar],
-            "Predicted antigenic profile": [predicted_antigenic_profile],
-            "O antigen prediction": [o_antigen],
-            "H1 antigen prediction(fliC)": [h1],
-            "H2 antigen prediction(fljB)": [h2],
-            "QC status": [qc_status]})
-        return sero_df
-    
-    return serotype
+        if return_df is True:
+            sero_df = pd.DataFrame(
+                {
+                    "Predicted serotype": [serovar],
+                    "Predicted antigenic profile": [predicted_antigenic_profile],
+                    "O antigen prediction": [o_antigen],
+                    "H1 antigen prediction(fliC)": [h1],
+                    "H2 antigen prediction(fljB)": [h2],
+                    "QC status": [qc_status],
+                }
+            )
+            return sero_df
+
+        return serotype
 
 
 def contig_stats(total_coverage):
@@ -156,13 +141,11 @@ def contig_stats(total_coverage):
             median=df["depth"].median(),
             mean=df["depth"].mean(),
             minimum=df["depth"].min(),
-            maximum=df["depth"].max()
+            maximum=df["depth"].max(),
         )
-        contigs.append(wf.Contig(
-            name=contig,
-            length=df["end"].max(),
-            coverage=coverage
-        ))
+        contigs.append(
+            wf.Contig(name=contig, length=df["end"].max(), coverage=coverage)
+        )
     return contigs
 
 
@@ -172,13 +155,15 @@ def variant_stats(vcf_file):
     variants = []
     for record in vcf_reader:
         for alt in record.ALT:
-            variants.append(wf.Variant(
-                contig=record.CHROM,
-                pos=record.POS,
-                ref=record.REF,
-                alt=str(alt),
-                depth=record.INFO["DP"]
-            ))
+            variants.append(
+                wf.Variant(
+                    contig=record.CHROM,
+                    pos=record.POS,
+                    ref=record.REF,
+                    alt=str(alt),
+                    depth=record.INFO["DP"],
+                )
+            )
     return variants
 
 
@@ -202,7 +187,7 @@ def assembly_stats(params_data, files):
         reference=params_data["reference"],
         annotations=annotation,
         contig=contigs,
-        variants=variants
+        variants=variants,
     )
 
     return assembly
@@ -217,9 +202,7 @@ def antimicrobial_stats(resfinder_json):
     point_data = get_point_data(resfinder_data)
     for gene in point_data.values():
         antimicrobial_details.extend(gene)
-    results = wf.AntimicrobialResistance(
-        detected_variants=antimicrobial_details
-    )
+    results = wf.AntimicrobialResistance(detected_variants=antimicrobial_details)
     return results
 
 
@@ -233,10 +216,7 @@ def main(args):
 
     files = gather_sample_files(args.alias, args.data_dir)
 
-    assembly = assembly_stats(
-        params_data,
-        files
-        )
+    assembly = assembly_stats(params_data, files)
 
     sequence_type = {}
     if files["mlst"]:
@@ -259,17 +239,14 @@ def main(args):
         assembly=assembly,
         sequence_typing=sequence_type,
         serotyping=serotype,
-        fastq=fastcat
+        fastq=fastcat,
     )
 
     sample = wf.Sample(
-        alias=alias,
-        sample_type=args.type,
-        results=results,
-        barcode=args.barcode
+        alias=alias, sample_type=args.type, results=results, barcode=args.barcode
     )
 
-    with open(args.output, 'w') as f:
+    with open(args.output, "w") as f:
         f.write(json.dumps(sample.dict(), indent=4))
 
     logger.info(f"results collected and written to {args.output}.")
