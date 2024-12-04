@@ -83,32 +83,6 @@ process processResfinder {
         """
 }
 
-// process serotyping {
-//     label "seqsero2"
-//     cpus 1
-//     memory "3 GB"
-//     errorStrategy 'ignore'
-//     input: 
-//         tuple val(meta), path("input_genome.fasta.gz"), val(species)
-//     output:
-//         tuple val(meta), path("${meta.alias}.serotype_results.tsv")
-//     script:
-//     """
-//     gunzip -c input_genome.fasta.gz > input_genome.fasta
-
-//     SeqSero2_package.py \
-//     -m k \
-//     -t '4' \
-//     -i input_genome.fasta \
-//     -p 1 \
-//     -b 'mem' \
-//     -d  output \
-//     -n ${meta.alias}
-
-//     cp -r output/SeqSero_result.tsv "${meta.alias}.serotype_results.tsv"
-//     """
-// }   
-
 process serotyping {
     label "sistr"
     cpus 1
