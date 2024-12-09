@@ -108,7 +108,7 @@
                 "isolates": {
                     "type": "boolean",
                     "title": "Isolates mode",
-                    "default": false,
+                    "default": true,
                     "description": "Run the Isolates pipeline on the assembly results if set to True.",
                     "help_text": "Isolates mode adds further analysis options to the workflow such as multi-locus sequence typing and antimicrobial resistance calling, as well as producing single reports for each sample in the run."
                 },
@@ -183,7 +183,7 @@
                     "type": "boolean",
                     "title": "Annotate genome with Prokka",
                     "description": "Run prokka on consensus sequence",
-                    "default": true,
+                    "default": false,
                     "help_text": "Will provide an output file with a list of annotations for your sequence. Optional because it can take some time."
                 },
                 "prokka_opts": {
@@ -212,7 +212,7 @@
                 },
                 "min_read_length": {
                     "type": "integer",
-                    "default": 1000,
+                    "default": 100,
                     "Title": "Minimum read length",
                     "description": "Reads below this threshold will be removed from analysis."
                 }
