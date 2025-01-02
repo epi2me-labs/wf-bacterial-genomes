@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Reconciled workflow with wf-template v5.3.4.
+- Increasing memory retries for flye deNovo process
 
 ## [v1.4.1]
 ### Added
