@@ -183,7 +183,7 @@
                     "type": "boolean",
                     "title": "Annotate genome with Prokka",
                     "description": "Run prokka on consensus sequence",
-                    "default": false,
+                    "default": true,
                     "help_text": "Will provide an output file with a list of annotations for your sequence. Optional because it can take some time."
                 },
                 "prokka_opts": {
