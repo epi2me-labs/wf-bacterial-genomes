@@ -13,8 +13,9 @@ variables:
 docker-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [de-novo, amr, barcode04, mixed-species, reference-iso, de-novo-advanced_options, de-novo-bam,
-                            bacteria-medaka-model, no-reads]
+            - MATRIX_NAME: [de-novo, de-novo-bam, de-novo-ubam, de-novo-advanced_options, amr,  
+                            barcode04, mixed-species, reference-iso, bacteria-medaka-model, no-reads,
+                            empty-ubam]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -33,6 +34,11 @@ docker-run:
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
                   --bam test_data/bam --threads 4 --chunk_size 100000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
+        - if: $MATRIX_NAME == "de-novo-ubam"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
+                  --bam test_data/ubam/barcode01_4k_lt15Q_1k.bam --threads 4 --chunk_size 100000 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_sup@v4.2.0"
               NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
         - if: $MATRIX_NAME == "de-novo-advanced_options"
           variables:
@@ -90,6 +96,13 @@ docker-run:
               --fastq test_data/no_data --sample_sheet test_data/sample_sheet_no_data.csv"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,makeReport,runProkka,makePerSampleReports"
+        - if: $MATRIX_NAME == "empty-ubam"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
+              --bam test_data/no_data_ubam/empty.bam"
+              NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
+                  medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,runProkka,makePerSampleReports,
+                  collect_results,createRunModel,deNovo"
               
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
