@@ -785,6 +785,7 @@ workflow {
     } else {
         samples = xam_ingress(ingress_args + [
             "input":params.bam,
+            "keep_unaligned":true,
             "return_fastq":true,
         ])
     } 
