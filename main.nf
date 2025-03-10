@@ -69,7 +69,7 @@ process coverStats {
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
-    memory "31 GB"
+    memory "25 GB"
     input:
         tuple val(meta), path("reads.fastq.gz")
     output:
@@ -195,6 +195,18 @@ process prokkaVersion {
     """
 }
 
+process hamronizeVersion {
+    label "hamronize"
+    cpus 1
+    memory "2 GB"
+    output:
+        path "hamronize_version.txt"
+    """
+    hamronize --version | sed 's/ /,/' >> "hamronize_version.txt"
+    """
+}
+
+
 
 process medakaVersion {
     label "medaka"
@@ -223,6 +235,7 @@ process mlstVersion {
     mlst --version | sed 's/ /,/' >> "mlst_version.txt"
     """
 }
+
 
 
 
@@ -324,6 +337,7 @@ process makeReport {
         path "resfinder/*"
         path "mlst/*"
         path "serotype/*"
+        path "hamronize/*"
         path client_fields
     output:
         path "wf-bacterial-genomes-*.html"
@@ -598,6 +612,7 @@ workflow calling_pipeline {
                 "${params.resfinder_threshold}",
                 "${params.resfinder_coverage}")
             mlst = run_isolates.mlst
+            hamronize = run_isolates.hamronize
             amr = run_isolates.amr
             amr_results = run_isolates.report_table
             serotype = run_isolates.serotype
@@ -608,6 +623,7 @@ workflow calling_pipeline {
             amr = Channel.empty()
             amr_results = Channel.empty()
             mlst = Channel.empty()
+            hamronize = Channel.empty()
             serotype = Channel.empty()
             amr_status = reads |
                 map { meta, reads, stats -> [ meta, "not-met" ] }
@@ -619,6 +635,7 @@ workflow calling_pipeline {
         | unique() )
 
         prokka_version = prokkaVersion()
+        hamronize_version = hamronizeVersion()
         medaka_version = medakaVersion(prokka_version)
         mlst_version = mlstVersion(medaka_version)
         software_versions = getVersions(mlst_version)
@@ -640,6 +657,7 @@ workflow calling_pipeline {
             | join(flye_info, remainder: true)
             | join(amr, remainder: true)
             | join(mlst, remainder: true)
+            | join(hamronize, remainder: true)
             | join(serotype, remainder: true)
             | map {
                 meta = it[0]
@@ -682,6 +700,7 @@ workflow calling_pipeline {
             flye_info.map{ meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             amr_results.map{ meta, amr -> amr }.collect().ifEmpty(OPTIONAL_FILE),
             mlst.map{ meta, mlst -> mlst }.collect().ifEmpty(OPTIONAL_FILE),
+            hamronize.map{ meta, hamronize -> hamronize }.collect().ifEmpty(OPTIONAL_FILE),
             serotype.map{ meta, sero -> sero}.collect().ifEmpty(OPTIONAL_FILE),
             client_fields)
         
@@ -735,6 +754,7 @@ workflow calling_pipeline {
             fastq_stats,
             amr.map {meta, resfinder -> resfinder},
             mlst.map {meta, mlst -> mlst},
+            hamronize.map {meta, hamronize -> hamronize },
             flye_info.map {meta, stats -> stats},
             workflow_params,
             software_versions,
