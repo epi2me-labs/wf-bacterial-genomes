@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v1.4.2]
 ### Changed
 - Reconciled workflow with wf-template v5.5.0.
 - Increasing memory retries for flye deNovo process
 ### Fixed
 - `makeReport` process used to fail with unaligned (u)BAMs as input because unaligned bams were excluded by default by `xam_ingress`. We fixed this by setting `xam_ingress` to keep the unaligned files as well.
 - `bam` and `bai` files from mapping the reads to the reference or draft assembly, depending on mode used, were previously missing from the output directory. They are now included.
+- Single sample reports incorrectly displaying 'de novo assembly failed' on successful samples.
 
 ## [v1.4.1]
 ### Added

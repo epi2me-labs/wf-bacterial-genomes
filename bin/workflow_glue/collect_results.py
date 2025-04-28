@@ -34,7 +34,7 @@ def gather_sample_files(alias, data_dir):
         "fastcat": os.path.join(data_dir, "fastcat_stats/per-read-stats.tsv.gz"),
         "len_hist": os.path.join(data_dir, "fastcat_stats/length.hist"),
         "qual_hist": os.path.join(data_dir, "fastcat_stats/quality.hist"),
-        "flye": os.path.join(data_dir, f"{alias}_flye_stats.tsv"),
+        "flye_stats": os.path.join(data_dir, f"{alias}.flye_stats.tsv"),
         "serotype": os.path.join(data_dir, f"{alias}.serotype_results.tsv")
     }
 
