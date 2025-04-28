@@ -132,9 +132,9 @@ process alignReads {
     input:
         tuple val(meta), path("reads.fastq.gz"), path("ref.fasta.gz")
     output:
-        tuple val(meta), path("*reads2ref.bam"), path("*reads2ref.bam.bai")
+        tuple val(meta), path("*.bam"), path("*.bam.bai")
     """
-    mini_align -i reads.fastq.gz -r ref.fasta.gz -p "${meta.alias}.reads2ref" -t $task.cpus -m
+    mini_align -i reads.fastq.gz -r ref.fasta.gz -p "${meta.alias}" -t $task.cpus -m
     """
 }
 
@@ -731,6 +731,7 @@ workflow calling_pipeline {
         all_out = vcf_stats.map{meta, stats -> stats}.concat(
             vcf_variant.map {meta, vcf -> vcf},
             consensus.map {meta, assembly -> assembly},
+            alignments.map {meta, bam, bai -> [bam, bai]},
             report,
             perSampleReports.map {meta, report -> report},
             prokka.map{meta, gff, gbk -> [gff, gbk]},
