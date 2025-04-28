@@ -3,7 +3,8 @@
 import json
 import os
 
-import workflow_glue.results_schema as wf
+from workflow_glue.models.custom import (
+    Sample, WorkflowResult)
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
@@ -17,21 +18,20 @@ def main(args):
         json_file = f"sample_results/{meta['alias']}.json"
         if os.path.exists(json_file):
             with open(json_file, "r") as f:
-                samples.append(wf.Sample(**json.loads(f.read())))
+                samples.append(Sample(**json.loads(f.read())))
         else:
-            samples.append(wf.Sample(
+            samples.append(Sample(
                 alias=meta["alias"],
                 barcode=meta["barcode"],
                 sample_type=meta["type"],
                 results=dict()
             ))
 
-    workflow = wf.WorkflowResult(
+    workflow = WorkflowResult(
         samples=samples
     )
 
-    with open(args.output, 'w') as f:
-        f.write(json.dumps(workflow.dict(), indent=4))
+    workflow.to_json(args.output)
 
     logger.info(f"Run model written to {args.output}")
 
