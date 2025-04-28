@@ -6,7 +6,10 @@ import os
 import numpy as np
 import pandas as pd
 import vcf
-import workflow_glue.results_schema as wf
+from workflow_glue.models.custom import (
+    AntimicrobialResistance, Assembly, Contig, Coverage, FastqStats,
+    MLST, ResultsContents, Sample, SequenceTypeSchema, Serotype, Variant
+    )
 from .parsers import (  # noqa: ABS101
     parse_prokka_gff
 )
@@ -65,7 +68,7 @@ def fastcat_stats(len_hist, qual_hist):
         min_length = len_df["lower"].min()
         max_length = len_df["lower"].max()
 
-    result = wf.FastqStats(
+    result = FastqStats(
         n_seqs=n_seqs,
         n_bases=n_bases,
         min_length=min_length,
@@ -84,11 +87,11 @@ def parse_mlst(mlst_file):
     alleles = []
     if mlst["alleles"]:
         for schema_id, allele in mlst["alleles"].items():
-            alleles.append(wf.SequenceTypeSchema(
+            alleles.append(SequenceTypeSchema(
                 schema_identifier=schema_id,
                 allele_variant=allele
             ))
-    result = wf.MLST(
+    result = MLST(
         detected_species=mlst["scheme"],
         sequence_type=mlst["sequence_type"],
         typing_schema=alleles
@@ -101,10 +104,10 @@ def parse_serotyping(serotype_file):
     """Extract serotyping information from SeqSero2."""
     sero_df = pd.read_csv(serotype_file, sep="\t")
     # columns always present in seqsero output
-    serotype = wf.Serotype(
+    serotype = Serotype(
         predicted_serotype=sero_df["Predicted serotype"].squeeze(),
         predicted_antigenic_profile=sero_df["Predicted antigenic profile"].squeeze(),
-        o_antigen_predicition=sero_df["O antigen prediction"].squeeze(),
+        o_antigen_prediction=sero_df["O antigen prediction"].squeeze(),
         h1_antigen_prediction=sero_df["H1 antigen prediction(fliC)"].squeeze(),
         h2_antigen_prediction=sero_df["H2 antigen prediction(fljB)"].squeeze()
     )
@@ -118,14 +121,14 @@ def contig_stats(total_coverage):
         total_coverage, sep="\t", names=["ref", "start", "end", "depth"]
     )
     for contig, df in depth_df.groupby("ref"):
-        coverage = wf.Coverage(
+        coverage = Coverage(
             counts=df["depth"].sum(),
             median=df["depth"].median(),
             mean=df["depth"].mean(),
             minimum=df["depth"].min(),
             maximum=df["depth"].max()
         )
-        contigs.append(wf.Contig(
+        contigs.append(Contig(
             name=contig,
             length=df["end"].max(),
             coverage=coverage
@@ -139,7 +142,7 @@ def variant_stats(vcf_file):
     variants = []
     for record in vcf_reader:
         for alt in record.ALT:
-            variants.append(wf.Variant(
+            variants.append(Variant(
                 contig=record.CHROM,
                 pos=record.POS,
                 ref=record.REF,
@@ -165,7 +168,7 @@ def assembly_stats(params_data, files):
         annotation = annotation.rename(columns={"EC number": "ec_number"})
         annotation = annotation.to_dict("records")
 
-    assembly = wf.Assembly(
+    assembly = Assembly(
         reference=params_data["reference"],
         annotations=annotation,
         contig=contigs,
@@ -184,7 +187,7 @@ def antimicrobial_stats(resfinder_json):
     point_data = get_point_data(resfinder_data)
     for gene in point_data.values():
         antimicrobial_details.extend(gene)
-    results = wf.AntimicrobialResistance(
+    results = AntimicrobialResistance(
         detected_variants=antimicrobial_details
     )
     return results
@@ -221,7 +224,7 @@ def main(args):
     if files["len_hist"] and files["qual_hist"]:
         fastcat = fastcat_stats(files["len_hist"], files["qual_hist"])
 
-    results = wf.ResultsContents(
+    results = ResultsContents(
         antimicrobial_resistance=antimicrobial_details,
         assembly=assembly,
         sequence_typing=sequence_type,
@@ -229,15 +232,14 @@ def main(args):
         fastq=fastcat
     )
 
-    sample = wf.Sample(
+    sample = Sample(
         alias=alias,
         sample_type=args.type,
         results=results,
         barcode=args.barcode
     )
 
-    with open(args.output, 'w') as f:
-        f.write(json.dumps(sample.dict(), indent=4))
+    sample.to_json(args.output)
 
     logger.info(f"results collected and written to {args.output}.")
 

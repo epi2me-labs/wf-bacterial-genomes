@@ -273,6 +273,11 @@
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
+                },
+                "store_dir" : {
+                    "type": "string",
+                    "description": "Unused",
+                    "hidden": true
                 }
             }
         }
