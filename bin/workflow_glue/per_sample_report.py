@@ -412,8 +412,8 @@ def main(args):
                     "As no reference was provided the reads were assembled"
                     " and corrected using Flye and Medaka."
                 )
-                if files["flye"]:
-                    flye_section(files["flye"])
+                if files["flye_stats"]:
+                    flye_section(files["flye_stats"])
                 else:
                     html_tags.p(
                         """No denovo assembly for sample.
