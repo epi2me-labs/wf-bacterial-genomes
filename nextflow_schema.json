@@ -56,6 +56,30 @@
                     "description": "A JSON file of key value pairs to display on the report.",
                     "help_text": "This is used to populate a table of additional information (for example, about upstream components of an assay) to the workflow report.",
                     "hidden": true
+                },
+                "use_filtlong": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "Use filtlong for read subsampling",
+                    "description": "Enable to subsample/filter reads after fastcat using filtlong."
+                },
+                "filtlong_target_bases": {
+                    "type": ["integer", "null"],
+                    "default": 300000000,
+                    "title": "Filtlong target bases",
+                    "description": "Target number of bases to retain after filtering (e.g. 500000000 for 500 Mbp). Required if filtlong is enabled."
+                },
+                "filtlong_min_length": {
+                    "type": "integer",
+                    "default": 1000,
+                    "title": "Filtlong minimum read length",
+                    "description": "Minimum read length to retain in filtlong output."
+                },
+                "filtlong_extra_args": {
+                    "type": "string",
+                    "default": "",
+                    "title": "Filtlong extra arguments",
+                    "description": "Additional command-line arguments to pass to filtlong."
                 }
             },
             "allOf": [

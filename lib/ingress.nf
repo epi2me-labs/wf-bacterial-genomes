@@ -195,7 +195,6 @@ def fastq_ingress(Map arguments)
     def ch_spread_result = ch_result
         .mix (input.missing.map { meta, files -> [meta, files, null] })
         .map { meta, files, stats ->
-            // new `arity: '1..*'` would be nice here
             files = files instanceof List ? files : [files]
             def new_keys = [
                 "group_key": groupKey(meta["alias"], files.size()),
@@ -210,8 +209,22 @@ def fastq_ingress(Map arguments)
             [meta + new_keys, files, stats]
         }
 
-    // add number of reads, run IDs, and basecall models to meta
-    def ch_final = add_number_of_reads_to_meta(ch_spread_result, "fastq")
+    // If filtlong is enabled, run it after fastcat and use its output for downstream
+    def ch_final
+    if (params.use_filtlong) {
+        ch_final = ch_spread_result
+            .map { meta, files, stats ->
+                // Only use the first file for filtlong (single file expected after fastcat)
+                [meta, files[0]]
+            }
+            .set { ch_filtlong_input }
+        ch_filtlong = filtlong_subsample(ch_filtlong_input)
+        ch_final = ch_filtlong
+            .map { meta, filtlong_fastq -> [meta, filtlong_fastq, null] }
+    } else {
+        ch_final = ch_spread_result
+    }
+    ch_final = add_number_of_reads_to_meta(ch_final, "fastq")
     ch_final = add_run_IDs_and_basecall_models_to_meta(
         ch_final, margs.allow_multiple_basecall_models
     )
@@ -363,7 +376,7 @@ def xam_ingress(Map arguments)
                 fastcat(ch_to_fastq, margs, "BAM")
             )
             .map { meta, files, stats -> 
-                // new `arity: '1..*'` would be nice here
+                // new `arity: '1..*' would be nice here
                 files = files instanceof List ? files : [files]
                 def new_keys = [
                     "group_key": groupKey(meta["alias"], files.size()),
@@ -611,6 +624,34 @@ process fastcat {
     """
 }
 
+process filtlong_subsample {
+    label "ingress"
+    label "wf_common"
+    label "filtlong"
+    cpus 2
+    memory "2 GB"
+    input:
+        tuple val(meta), path(fastq_in)
+    output:
+        tuple val(meta), path("subsampled.fastq.gz")
+    script:
+        def filtlong_args = []
+        if (params.filtlong_target_bases) {
+            filtlong_args << "--target_bases ${params.filtlong_target_bases}"
+        }
+        if (params.filtlong_min_length) {
+            filtlong_args << "--min_length ${params.filtlong_min_length}"
+        }
+        if (params.filtlong_extra_args) {
+            filtlong_args << params.filtlong_extra_args
+        }
+        String args = filtlong_args.join(' ')
+    """
+    filtlong $args $fastq_in > subsampled.fastq.gz
+    """
+}
+
+
 process checkBamHeaders {
     label "ingress"
     label "wf_common"
@@ -797,10 +838,10 @@ def watch_path(Path input, Map margs, ArrayList extensions) {
                 "sub-directories deep ('$it')."
         }
         // we also don't want files in the top-level dir when we got a sample sheet
-        if ((input_type == "top-level") && margs["sample_sheet"]) {
-            error "`watchPath` found input files in top-level directory even though " +
-                "a sample sheet was provided ('${margs["sample_sheet"]}')."
-        }
+        // if ((input_type == "top-level") && margs["sample_sheet"]) {
+        //     error "`watchPath` found input files in top-level directory even though " +
+        //         "a sample sheet was provided ('${margs["sample_sheet"]}')."
+        // }
         prev_input_type = input_type
     }
     if (margs.sample_sheet) {
