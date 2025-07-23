@@ -258,7 +258,12 @@
                     "type": "boolean",
                     "default": false,
                     "title": "Disable ping",
-                    "description": "Enable to prevent sending a workflow ping."
+                    "description": "Enable to prevent sending a workflow ping.",
+                    "overrides": {
+                        "epi2mecloud": {
+                            "hidden": true
+                        }
+                    }
                 },
                 "help": {
                     "type": "boolean",

@@ -8,7 +8,7 @@ repos:
         always_run: true
         pass_filenames: false
         additional_dependencies:
-          - epi2melabs==0.0.57
+          - epi2melabs==0.0.58
   - repo: https://github.com/pycqa/flake8
     rev: 5.0.4
     hooks:
@@ -24,6 +24,8 @@ repos:
           - flake8-builtins
           - flake8-absolute-import
           - flake8-print
+          # avoid snowballstemmer>=3.0 as it causes flake8-docstrings to stop working [CW-6098]
+          - snowballstemmer==2.2.0
         args: [
             "bin",
             "--import-order-style=google",
