@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-bacterial-genomes",
-    "workflow_title" : "Bacterial assembly and annotation workflow",
+    "workflow_title" : "Bacterial Genomes",
     "description": "Assembly, variant calling, and annotation of bacterial genomes.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-bacterial-genomes/wf-bacterial-genomes-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-bacterial-genomes/wf-bacterial-genomes-demo/aws.nextflow.config",
@@ -282,6 +282,7 @@
                 "store_dir" : {
                     "type": "string",
                     "description": "Unused",
+                    "format": "directory-path",
                     "hidden": true
                 }
             }
