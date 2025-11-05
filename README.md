@@ -1,4 +1,4 @@
-# Bacterial assembly and annotation workflow
+# Bacterial Genomes
 
 Assembly, variant calling, and annotation of bacterial genomes.
 
