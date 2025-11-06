@@ -341,6 +341,6 @@
             "memory": "32GB"
         },
         "run_time": "20-40 minutes per sample with ~50x coverage using minimum requirements",
-        "arm_support": true
+        "arm_support": false
     }
 }
