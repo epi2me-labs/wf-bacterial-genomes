@@ -10,4 +10,4 @@ Minimum requirements:
 
 Approximate run time: 20-40 minutes per sample with ~50x coverage using minimum requirements
 
-ARM processor support: True
+ARM processor support: False
