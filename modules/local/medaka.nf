@@ -23,17 +23,19 @@ process medakaInference {
             'dna_r10.4.1_e8.2_400bps_hac@v4.3.0', 'dna_r10.4.1_e8.2_400bps_sup@v4.3.0',
             'dna_r10.4.1_e8.2_400bps_hac@v5.0.0', 'dna_r10.4.1_e8.2_400bps_sup@v5.0.0'
         ]
+        // Avoid modifying input val, as retry will check the modified val, not original input val
+        def model_to_use = basecall_model
         if ((type == "consensus") && (basecall_model in consensus_bact_methyl_compatible_models)){
-            basecall_model = "r1041_e82_400bps_bacterial_methylation"       
+            model_to_use = "r1041_e82_400bps_bacterial_methylation"       
         }
         else {
-            basecall_model = "${basecall_model}:${type}"
+            model_to_use = "${basecall_model}:${type}"
         }
     """
     medaka --version
     echo ${basecall_model}
     medaka inference align.bam "${meta.alias}.consensus_probs.hdf" \
-        --threads 2 --regions "${region}" --model ${basecall_model}
+        --threads 2 --regions "${region}" --model ${model_to_use}
     """
 }
 
