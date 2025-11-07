@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+### Fixed
+- Changed Nextflow data flow logic to avoid mismatch between sample labels and read statistics in the report.
 - Fixed a defect that lead to medakaInference process failing upon retry.
 
 ## [v1.4.4]

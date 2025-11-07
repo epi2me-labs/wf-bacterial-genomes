@@ -63,6 +63,12 @@ def gather_sample_files(sample_names, denovo_mode, prokka_mode, isolates_mode, l
                         f"Required file '{file_type}' missing "
                         f"for sample '{sample_name}'."
                     )
+        stats_file = os.path.join(
+            "per_read_stats", sample_name, "fastcat_stats", "per-read-stats.tsv.gz")
+        if os.path.exists(stats_file):
+            files["per_read_stats"] = stats_file
+        else:
+            files["per_read_stats"] = None
         sample_files[sample_name] = files
     return sample_files
 
@@ -218,14 +224,17 @@ def create_report(args, logger):
         samples, args.denovo, args.prokka, args.isolates, logger
         )
 
-    if args.stats:
-        sample_ids_with_stats = sorted(
-            zip(args.sample_ids_with_stats, args.stats), key=lambda x: x[0]
-        )
+    samples_with_stats = []
+    for sample_name in samples:
+        stats_file = sample_files[sample_name].get("per_read_stats")
+        if stats_file:
+            samples_with_stats.append((sample_name, stats_file))
+
+    if samples_with_stats:
         with report.add_section("Read summary", "Read summary"):
             fastcat.SeqSummary(
-                sample_names=tuple([x[0] for x in sample_ids_with_stats]),
-                seq_summary=tuple([x[1] for x in sample_ids_with_stats]),
+                sample_names=tuple([x[0] for x in samples_with_stats]),
+                seq_summary=tuple([x[1] for x in samples_with_stats]),
             )
 
     if not args.denovo:
@@ -537,12 +546,6 @@ def main(args):
 def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("report")
-    parser.add_argument("--stats", nargs="*", help="Fastcat per-read stats file(s).")
-    parser.add_argument(
-        "--sample_ids_with_stats",
-        nargs="*",
-        help="Sample names in order of per-read stats files.",
-    )
     parser.add_argument(
         "--denovo",
         action="store_true",
