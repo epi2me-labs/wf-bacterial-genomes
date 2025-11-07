@@ -317,8 +317,7 @@ process makeReport {
         path "variants/*"
         val sample_ids
         path "prokka/*"
-        val sample_ids_with_stats
-        path "per_read_stats/?.gz"
+        path "per_read_stats/*"
         path "fwd/*"
         path "rev/*"
         path "total_depth/*"
@@ -335,14 +334,10 @@ process makeReport {
         prokka = params.run_prokka as Boolean ? "--prokka" : ""
         isolates = params.isolates as Boolean ? "--isolates" : ""
         samples = sample_ids.join(" ")
-        sample_ids_with_stats_arg = sample_ids_with_stats ? \
-            "--sample_ids_with_stats ${sample_ids_with_stats.join(" ")}" : ""
         client_fields_args = client_fields.name == OPTIONAL_FILE.name ? "" : "--client_fields $client_fields"
     // NOTE: the script assumes the various subdirectories
     """
     workflow-glue report \
-    --stats per_read_stats/* \
-    $sample_ids_with_stats_arg \
     $prokka \
     $denovo \
     $isolates \
@@ -658,17 +653,10 @@ workflow calling_pipeline {
             metadata
         )
 
-        // get the samples that have stats (to keep the aliases and stats in the same
-        // order for the report)
-        samples_with_stats = reads.map { meta, reads, stats_dir ->
-            if (stats_dir) {
-                [meta.alias, stats_dir.resolve('per-read-stats.tsv.gz')]
-            }
-        }
-        | multiMap { alias, stats ->
-            alias: alias
-            stats: stats
-        }
+        fastq_stats = reads
+        // replace `null` with path to optional file
+        | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
+        | collectFastqIngressResultsInDir
 
         report = makeReport(
             software_versions,
@@ -676,8 +664,7 @@ workflow calling_pipeline {
             vcf_stats.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
             prokka.map{ meta, gff, gbk -> gff }.collect().ifEmpty(OPTIONAL_FILE),
-            samples_with_stats.alias.toList(),
-            samples_with_stats.stats.toList(),
+            fastq_stats.collect(),
             depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.all.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
@@ -724,10 +711,6 @@ workflow calling_pipeline {
         definitions
     )
 
-        fastq_stats = reads
-        // replace `null` with path to optional file
-        | map { [ it[0], it[1] ?: OPTIONAL_FILE, it[2] ?: OPTIONAL_FILE ] }
-        | collectFastqIngressResultsInDir
         all_out = vcf_stats.map{meta, stats -> stats}.concat(
             vcf_variant.map {meta, vcf -> vcf},
             consensus.map {meta, assembly -> assembly},
