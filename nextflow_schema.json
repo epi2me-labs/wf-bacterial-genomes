@@ -141,6 +141,8 @@
                     "description": "Override auto-detected basecaller model that processed the signal data; used to select an appropriate Medaka model.",
                     "help_text": "Per default, the workflow tries to determine the basecall model from the input data. This parameter can be used to override the detected value (or to provide a model name if none was found in the inputs). However, users should only do this if they know for certain which model was used as selecting the wrong option might give sub-optimal results. A list of recent models can be found here: https://github.com/nanoporetech/dorado#DNA-models.",
                     "enum": [
+                        "dna_r10.4.1_e8.2_400bps_sup@v5.2.0",
+                        "dna_r10.4.1_e8.2_400bps_hac@v5.2.0",
                         "dna_r10.4.1_e8.2_400bps_sup@v5.0.0",
                         "dna_r10.4.1_e8.2_400bps_hac@v5.0.0",
                         "dna_r10.4.1_e8.2_400bps_sup@v4.3.0",
@@ -175,7 +177,7 @@
                 "chunk_size": {
                     "type": "integer",
                     "title": "Chunk size",
-                    "default": 1000000,
+                    "default": 100000,
                     "description": "Splits the reference sequences (or Flye assembly) into overlapping sub-regions of this size when processing with Medaka.",
                     "hidden": true
                 },

@@ -21,7 +21,8 @@ process medakaInference {
         consensus_bact_methyl_compatible_models = [
             'dna_r10.4.1_e8.2_400bps_hac@v4.2.0', 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0', 
             'dna_r10.4.1_e8.2_400bps_hac@v4.3.0', 'dna_r10.4.1_e8.2_400bps_sup@v4.3.0',
-            'dna_r10.4.1_e8.2_400bps_hac@v5.0.0', 'dna_r10.4.1_e8.2_400bps_sup@v5.0.0'
+            'dna_r10.4.1_e8.2_400bps_hac@v5.0.0', 'dna_r10.4.1_e8.2_400bps_sup@v5.0.0',
+            'dna_r10.4.1_e8.2_400bps_hac@v5.2.0', 'dna_r10.4.1_e8.2_400bps_sup@v5.2.0'
         ]
         // Avoid modifying input val, as retry will check the modified val, not original input val
         def model_to_use = basecall_model

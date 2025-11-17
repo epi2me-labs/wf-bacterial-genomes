@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.6]
+### Added
+- Added support for data with 5.2.0 basecalling model.
+    - Updated docker image to use Medaka v2.1.1.
+### Changed
+- Adjust default `--chunk_size` to 100000, to reduce workflow execution time when using Medaka v2.1.1 for polishing.
+
 ## [v1.4.5]
 ### Fixed
 - Changed Nextflow data flow logic to avoid mismatch between sample labels and read statistics in the report.

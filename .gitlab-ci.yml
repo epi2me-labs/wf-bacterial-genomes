@@ -15,7 +15,7 @@ docker-run:
         matrix:
             - MATRIX_NAME: [de-novo, de-novo-bam, de-novo-ubam, de-novo-advanced_options, amr,  
                             barcode04, mixed-species, reference-iso, bacteria-medaka-model, no-reads,
-                            empty-ubam]
+                            empty-ubam, basecaller_5.2]
               TAG: [large_ram]
             - MATRIX_NAME: [reference-based, check-model, sample-sheet]
               TAG: [""]
@@ -103,6 +103,11 @@ docker-run:
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,runProkka,makePerSampleReports,
                   collect_results,createRunModel,deNovo"
+        - if: $MATRIX_NAME == "basecaller_5.2"
+          variables:
+              NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
+              --fastq test_data/fastq/barcode01/ --threads 4 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports"
               
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-prokka:
