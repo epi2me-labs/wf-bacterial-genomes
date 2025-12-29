@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.1]
+### Changed
+- Changed Bakta DB download source for improved workflow reliablility.
+
 ## [v2.0.0]
 The v2.0.0 software release encompasses multiple internal development releases that collectively introduce new species and plasmid identification functionality. This release updates bacterial annotations to use Bakta, expands the workflow to provide AMR and species detection for fungal genome assemblies, and includes a variety of other feature enhancements, bug fixes, and updates to documentation and generated reports.
 ### Added

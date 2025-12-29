@@ -200,6 +200,7 @@ process runDnaapler {
     """
 }
 
+
 process download_bakta_db {
     label "bakta"
     cpus 2
@@ -209,19 +210,26 @@ process download_bakta_db {
     input:
         val db_type
     output:
-        path "bakta_${db_type}"
+        path "db-${db_type}"
     
     script:
+    def filename = db_type == "light" ? "db-light.tar.xz" : "db.tar.xz"
+    def base_url = "https://ont-open-data.s3.amazonaws.com/bacterial_genomes/baktadb"
     log.info("Downloading Bakta database")
     """
-    mkdir -p "bakta_${db_type}"
-    bakta_db download --output "bakta_${db_type}" --type ${db_type}
-    amrfinder_update --force_update --database "bakta_${db_type}/amrfinderplus-db/"
-    
-    if [ ! -f "bakta_${db_type}/db-${db_type}/version.json" ]; then
-    echo "ERROR: Bakta database download failed"
-    exit 1
+    # This has been implemented instead of the bakta `bakta_db download`
+    # as result of recurring issues with Zenodo download reliability.
+    curl -L \
+        --retry 3 \
+        --retry-delay 5 \
+        -o db-${db_type}.tar.xz \
+        ${base_url}/${filename}
+    if [ ! -f db-${db_type}.tar.xz ]; then
+        echo "ERROR: Bakta database download failed"
+        exit 1
     fi
+    tar -xf db-${db_type}.tar.xz
+    rm db-${db_type}.tar.xz
     """
 }
 
@@ -244,11 +252,10 @@ process runBakta {
             emit: exit_status
     script:
     def bakta_opts = params.bakta_opts ?: ""
-    def db_type = params.bakta_db_type
     """
     gunzip -c consensus.fasta.gz > consensus.fasta
     export AMRFINDERPLUS_DB="${bakta_db}/amrfinderplus-db"
-    bakta --db ${bakta_db}/db-${db_type} \
+    bakta --db ${bakta_db} \
         $bakta_opts \
         --keep-contig-headers \
         --output "${meta.alias}.bakta_results" \
