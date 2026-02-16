@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Changed
+- Updated to wf-template v5.7.1 to maintain compliance with our latest wf-template standard, changing:
+    - The README docs sections to move related protocols after inputs and outputs.
+    - Links in the README to point at our new documentation website.
+    - Our pre-commit configuration to resolve a dependency issue in our test infrastructure.
+
 ## [v2.0.1]
 ### Changed
 - Changed Bakta DB download source for improved workflow reliability.
