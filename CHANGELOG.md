@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - The README docs sections to move related protocols after inputs and outputs.
     - Links in the README to point at our new documentation website.
     - Our pre-commit configuration to resolve a dependency issue in our test infrastructure.
+### Fixed
+- Fixed an issue where stderr could be written to `versions.txt`, causing the workflow to crash.
 
 ## [v2.0.1]
 ### Changed
