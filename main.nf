@@ -313,7 +313,7 @@ process baktaVersion {
     output:
         path "bakta_version.txt"
     """
-    bakta --version |& sed 's/ /,/' >> "bakta_version.txt"
+    bakta --version | sed 's/ /,/' >> "bakta_version.txt"
     """
 }
 
