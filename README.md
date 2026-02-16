@@ -53,7 +53,7 @@ ARM processor support: False
 
 These are instructions to install and run the workflow on command line.
 You can also access the workflow via the
-[EPI2ME Desktop application](https://labs.epi2me.io/downloads/).
+[EPI2ME Desktop application](https://epi2me.nanoporetech.com/downloads/).
 
 The workflow uses [Nextflow](https://www.nextflow.io/) to manage
 compute and software resources,
@@ -73,7 +73,8 @@ parameter as exemplified below.
 It is not required to clone or download the git repository
 in order to run the workflow.
 More information on running EPI2ME workflows can
-be found on our [website](https://labs.epi2me.io/wfindex).
+be found in the
+[documentation](https://epi2me.nanoporetech.com/epi2me-docs/wfquickstart/).
 
 The following command can be used to obtain the workflow.
 This will pull the repository in to the assets folder of
@@ -103,26 +104,6 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 	--sample_sheet 'wf-bacterial-genomes-demo/isolates_sample_sheet.csv' \
 	-profile standard
 ```
-
-For further information about running a workflow on
-the command line see https://labs.epi2me.io/wfquickstart/
-
-
-
-
-## Related protocols
-
-<!---Hyperlinks to any related protocols that are directly related to this workflow, check the community for any such protocols.--->
-
-This workflow is designed to take input sequences that have been produced from [Oxford Nanopore Technologies](https://nanoporetech.com/) devices.
-
-Optimal DNA extraction will be dependent on the gram status of the organism. Some useful protocols are provided below:
-+ [Gram-positive bacteria](https://community.nanoporetech.com/extraction_method_groups/gram-positive-bacterial-gnda)
-+ [Gram-negative bacteria](https://community.nanoporetech.com/extraction_methods/gram-ve-dna)
-+ [Fungi (yeast)](https://nanoporetech.com/document/extraction-method/yeast-gdna-ont)
-
-
-Find more related protocols in the [Nanopore community](https://community.nanoporetech.com/docs/).
 
 
 
@@ -452,6 +433,23 @@ Output files may be aggregated including information for all samples or provided
 | Sourmash excluded assemblies | sourmash_picklist_excluded.txt | List of assembly identifiers (GCA_/GCF_) excluded from default Sourmash species identification database (isolates mode only). | aggregated |
 | AMR calling results | {{ alias }}_resfinder_results | Complete AMR calling output directory containing detailed ResFinder, PointFinder, and DesinFinder outputs (isolates mode only). | per-sample |
 | Isolate per sample report | {{ alias }}-isolates-report.html | Per sample report (isolates mode only). | per-sample |
+
+
+
+
+## Related protocols
+
+<!---Hyperlinks to any related protocols that are directly related to this workflow, check the community for any such protocols.--->
+
+This workflow is designed to take input sequences that have been produced from [Oxford Nanopore Technologies](https://nanoporetech.com/) devices.
+
+Optimal DNA extraction will be dependent on the gram status of the organism. Some useful protocols are provided below:
++ [Gram-positive bacteria](https://community.nanoporetech.com/extraction_method_groups/gram-positive-bacterial-gnda)
++ [Gram-negative bacteria](https://community.nanoporetech.com/extraction_methods/gram-ve-dna)
++ [Fungi (yeast)](https://nanoporetech.com/document/extraction-method/yeast-gdna-ont)
+
+
+Find more related protocols in the [Nanopore community](https://community.nanoporetech.com/docs/).
 
 
 
