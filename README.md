@@ -198,38 +198,8 @@ Additional [mob-recon options](https://github.com/phac-nml/mob-suite) can be spe
 ### 4. Annotations
 
 Consensus genome assemblies can be annotated using [Bakta](https://github.com/oschwengers/bakta). 
-By default, Bakta will run with [light database](https://github.com/oschwengers/bakta?tab=readme-ov-file#database), which will be automatically downloaded and installed when the workflow is executed. To optionally run Bakta with the [full database](https://zenodo.org/records/14916843) specify `--bakta_db_type=full`. This will trigger the installation of the full version of the database. As of version 6.0, the compressed size of the full database is approximately 32 GB, so the download may take a significant amount of time.
-Alternatively, users can use following steps to manually download and install Bakta database, and specify the custom database location using the `--bakta_db` parameter.
-
-#### Downloading the full database (via Docker)
-A compatible database version can be downloaded using the following command:
-
-```bash
-docker run -v /path/to/desired-db-path:/db --entrypoint /bin/bash ontresearch/bakta:latest
- -c "bakta_db download --output /db --type full"
-```
-
-#### Manual download
-
-Alternatively, you can manually download the database:
-```bash
-wget https://zenodo.org/record/14916843/files/db.tar.xz
-```
-
-Then install it using Docker:
-```bash
-docker run -v /path/to/db:/db --entrypoint /bin/bash ontresearch/bakta:latest -c "bakta_db install -i db.tar.xz"
-```
-
-#### Updating AMRFinderPlus database
-Bakta relies on the AMRFinderPlus database, which may need to be updated manually (even after a fresh installation of the Bakta database). To update it:
-
-```bash
-docker run -v /path/to/db:/db --entrypoint /bin/bash ontresearch/bakta:latest -c "amrfinder_update --force_update --database db/amrfinderplus-db/"
-```
-
-#### Using a local database in the workflow
-To use a locally installed Bakta database, pass the path using `--bakta_db`. For example:
+By default, Bakta runs with the [light database](https://github.com/oschwengers/bakta?tab=readme-ov-file#database).
+To use the "full" Bakta database or any other custom database, it must be [installed locally](https://github.com/oschwengers/bakta?tab=readme-ov-file#database-download) and provided to the workflow using the `--bakta_db` parameter. For example:
 
 ```bash
 nextflow run epi2me-labs/wf-bacterial-genomes \
@@ -237,7 +207,8 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 	--bakta_db '/path/to/db'
 ```
 
-By default, the workflow disables circular genome plot generation by Bakta (`--skip-plot`), but all other settings follow Bakta’s defaults. Users can customize Bakta's behavior by supplying additional arguments via `--bakta_opts`.
+By default, the workflow disables circular genome plot generation in Bakta (`--skip-plot`), while all other settings follow Bakta’s defaults.
+Users can further customize Bakta’s behaviour by supplying additional arguments via `--bakta_opts`.
 
 ### 5. Isolates mode (optional)
 
@@ -379,7 +350,6 @@ Samples identified as salmonella from the MLST step will undergo serotyping and 
 | run_bakta | boolean | Run Bakta on consensus sequence | Will provide an output file with a list of annotations for your sequence. Optional because it can take some time. | True |
 | bakta_opts | string | Command-line arguments for Bakta | [Command line arguments](https://github.com/oschwengers/bakta#usage) which can be used to alter Bakta output annotation files. |  |
 | bakta_db | string | Path to existing Bakta database directory. If not provided, the workflow will download the database. | Provide the path to a Bakta database directory containing both Bakta and AMRFinderPlus databases. If not specified, the workflow will automatically download the database type specified by bakta_db_type. |  |
-| bakta_db_type | string | Type of Bakta database to download if bakta_db is not provided. | Choose 'light' for the standard database (~1.3 GB) or 'full' for the complete database (~30 GB). Only used when bakta_db is not specified. | light |
 | flye_genome_size | integer | Estimated genome size for de novo assembly in non-SI prefix format (e.g 5000000 for 5 Mb genome) | This setting is used in conjunction with `flye_asm_coverage` to subsample the reads used in the initial disjointig step only; all reads are used in subsequent steps. The values in the two parameters are used to calculate a target yield used to subsample the longest reads in the dataset, see [Flye docs](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) for more information. *Note* For runs with mixed genome sizes, preference the larger genome size. |  |
 | flye_asm_coverage | integer | Target coverage to use for subsampling in de novo assembly | This setting is used in conjunction with `flye_genome_size` to subsample the reads used in the initial disjointig step only; all reads are used in subsequent steps. The values in the two parameters are used to calculate a target yield used to subsample the longest reads in the dataset, see [Flye docs](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) for more information. |  |
 | flye_opts | string | Command-line arguments for flye | [Command line arguments](https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md#-quick-usage) which can be used to alter the de novo assembly process. Enter the command as quoted string (e.g '--meta --iterations 2'). Flye's `--genome-size` and `--asm-coverage` parameters can be set directly in the workflow with `--flye_genome_size` and `--flye_asm_coverage`, respectively. |  |

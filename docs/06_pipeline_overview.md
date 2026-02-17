@@ -63,38 +63,8 @@ Additional [mob-recon options](https://github.com/phac-nml/mob-suite) can be spe
 ### 4. Annotations
 
 Consensus genome assemblies can be annotated using [Bakta](https://github.com/oschwengers/bakta). 
-By default, Bakta will run with [light database](https://github.com/oschwengers/bakta?tab=readme-ov-file#database), which will be automatically downloaded and installed when the workflow is executed. To optionally run Bakta with the [full database](https://zenodo.org/records/14916843) specify `--bakta_db_type=full`. This will trigger the installation of the full version of the database. As of version 6.0, the compressed size of the full database is approximately 32 GB, so the download may take a significant amount of time.
-Alternatively, users can use following steps to manually download and install Bakta database, and specify the custom database location using the `--bakta_db` parameter.
-
-#### Downloading the full database (via Docker)
-A compatible database version can be downloaded using the following command:
-
-```bash
-docker run -v /path/to/desired-db-path:/db --entrypoint /bin/bash ontresearch/bakta:latest
- -c "bakta_db download --output /db --type full"
-```
-
-#### Manual download
-
-Alternatively, you can manually download the database:
-```bash
-wget https://zenodo.org/record/14916843/files/db.tar.xz
-```
-
-Then install it using Docker:
-```bash
-docker run -v /path/to/db:/db --entrypoint /bin/bash ontresearch/bakta:latest -c "bakta_db install -i db.tar.xz"
-```
-
-#### Updating AMRFinderPlus database
-Bakta relies on the AMRFinderPlus database, which may need to be updated manually (even after a fresh installation of the Bakta database). To update it:
-
-```bash
-docker run -v /path/to/db:/db --entrypoint /bin/bash ontresearch/bakta:latest -c "amrfinder_update --force_update --database db/amrfinderplus-db/"
-```
-
-#### Using a local database in the workflow
-To use a locally installed Bakta database, pass the path using `--bakta_db`. For example:
+By default, Bakta runs with the [light database](https://github.com/oschwengers/bakta?tab=readme-ov-file#database).
+To use the "full" Bakta database or any other custom database, it must be [installed locally](https://github.com/oschwengers/bakta?tab=readme-ov-file#database-download) and provided to the workflow using the `--bakta_db` parameter. For example:
 
 ```bash
 nextflow run epi2me-labs/wf-bacterial-genomes \
@@ -102,7 +72,8 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 	--bakta_db '/path/to/db'
 ```
 
-By default, the workflow disables circular genome plot generation by Bakta (`--skip-plot`), but all other settings follow Bakta’s defaults. Users can customize Bakta's behavior by supplying additional arguments via `--bakta_opts`.
+By default, the workflow disables circular genome plot generation in Bakta (`--skip-plot`), while all other settings follow Bakta’s defaults.
+Users can further customize Bakta’s behaviour by supplying additional arguments via `--bakta_opts`.
 
 ### 5. Isolates mode (optional)
 
