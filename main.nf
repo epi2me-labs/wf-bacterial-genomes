@@ -201,38 +201,6 @@ process runDnaapler {
 }
 
 
-process download_bakta_db {
-    label "bakta"
-    cpus 2
-    memory "8 GB"
-    storeDir {params.store_dir ? "${params.store_dir}" : null }
-    
-    input:
-        val db_type
-    output:
-        path "db-${db_type}"
-    
-    script:
-    def filename = db_type == "light" ? "db-light.tar.xz" : "db.tar.xz"
-    def base_url = "https://ont-open-data.s3.amazonaws.com/bacterial_genomes/baktadb"
-    log.info("Downloading Bakta database")
-    """
-    # This has been implemented instead of the bakta `bakta_db download`
-    # as result of recurring issues with Zenodo download reliability.
-    curl -L \
-        --retry 3 \
-        --retry-delay 5 \
-        -o db-${db_type}.tar.xz \
-        ${base_url}/${filename}
-    if [ ! -f db-${db_type}.tar.xz ]; then
-        echo "ERROR: Bakta database download failed"
-        exit 1
-    fi
-    tar -xf db-${db_type}.tar.xz
-    rm db-${db_type}.tar.xz
-    """
-}
-
 process runBakta {
     // run Bakta on the consensus sequence
     label "bakta"
@@ -248,25 +216,32 @@ process runBakta {
             optional: true, emit: annot
         tuple val(meta), 
             env(BAKTA_EXIT_CODE), 
-            env(STDERR_TAIL),
+            env(STDERR),
             emit: exit_status
     script:
     def bakta_opts = params.bakta_opts ?: ""
+    def db_arg = bakta_db.name != 'OPTIONAL_FILE' ? "--db ${bakta_db}" : ""
     """
     gunzip -c consensus.fasta.gz > consensus.fasta
-    export AMRFINDERPLUS_DB="${bakta_db}/amrfinderplus-db"
-    bakta --db ${bakta_db} \
-        $bakta_opts \
+    set +e
+    bakta ${db_arg} \
+        ${bakta_opts} \
         --keep-contig-headers \
         --output "${meta.alias}.bakta_results" \
         --threads $task.cpus \
         --prefix "${meta.alias}.bakta" \
         --skip-plot \
-        *consensus.fasta 2> stderr.log || true
+        *consensus.fasta 2> stderr.log
     BAKTA_EXIT_CODE=\$?
-    STDERR_TAIL=\$(tail -n 20 stderr.log 2>/dev/null || echo "No stderr")
+    set -e
+    if [[ \$BAKTA_EXIT_CODE -ne 0 ]]; then
+        STDERR=\$(cat stderr.log 2>/dev/null || echo "No stderr available")
+    else
+        STDERR=""
+    fi
     """
 }
+
 
 process runMobSuite {
     label "mobsuite"
@@ -794,8 +769,7 @@ workflow calling_pipeline {
         if (params.run_bakta) {
             bakta_db = params.bakta_db ? 
                 Channel.fromPath(params.bakta_db, checkIfExists: true) : 
-                download_bakta_db(params.bakta_db_type)
-
+                Channel.value(OPTIONAL_FILE)
 
             bakta_output = runBakta(consensus, bakta_db)
             // Check if bakta annotation succedds for each sample and log failed samples with error message

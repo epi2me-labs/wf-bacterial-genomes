@@ -241,14 +241,6 @@
                     "description": "Path to existing Bakta database directory. If not provided, the workflow will download the database.",
                     "help_text": "Provide the path to a Bakta database directory containing both Bakta and AMRFinderPlus databases. If not specified, the workflow will automatically download the database type specified by bakta_db_type."
                 },
-                "bakta_db_type": {
-                    "type": "string",
-                    "title": "Bakta database type",
-                    "default": "light",
-                    "description": "Type of Bakta database to download if bakta_db is not provided.",
-                    "help_text": "Choose 'light' for the standard database (~1.3 GB) or 'full' for the complete database (~30 GB). Only used when bakta_db is not specified.",
-                    "enum": ["light", "full"]
-                },
                 "flye_genome_size": {
                     "type": "integer",
                     "Title": "Estimated genome size",

@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Links in the README to point at our new documentation website.
     - Our pre-commit configuration to resolve a dependency issue in our test infrastructure.
 ### Fixed
+- Resolved an issue causing Bakta annotations to fail in cloud runs.
+    - Updated the Docker container to include the "light" Bakta database.
+    - Removed the functionality that allowed the workflow to download an externally stored Bakta database, eliminating the need for an internet connection on first execution.
+    - Removed the `--bakta_db_type` parameter. To use the "full" Bakta database, it must be downloaded separately and provided to the workflow using the `--bakta_db` parameter.
 - Fixed an issue where stderr could be written to `versions.txt`, causing the workflow to crash.
+
 
 ## [v2.0.1]
 ### Changed
