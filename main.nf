@@ -67,6 +67,44 @@ process coverStats {
 }
 
 
+// ingress does allow for --fastcat_extra_args, but passing --dust to this would work only for FASTQ not BAM, 
+// hence the filtering is done after ingress and fastcat stats is run on the filtered reads
+process fastlintFilter {
+    label "wf_common"
+    cpus 2
+    memory "4 GB"
+    input:
+        tuple val(meta), path("input.fastq.gz")
+    output:
+        tuple val(meta), path("${meta.alias}.filtered.fastq.gz"), path("fastcat_stats")
+    script:
+    """
+    fastlint --threshold ${params.fastlint_threshold} input.fastq.gz | bgzip -@ ${task.cpus} > ${meta.alias}.filtered.fastq.gz
+    
+    # Generate stats on filtered reads using fastcat
+    mkdir fastcat_stats
+    fastcat \
+        -s '${meta.alias}' \
+        -f fastcat_stats/per-file-stats.tsv \
+        -i fastcat_stats/per-file-runids.tsv \
+        -l fastcat_stats/per-file-basecallers.tsv \
+        --histograms histograms \
+        -r >(bgzip -c > fastcat_stats/per-read-stats.tsv.gz) \
+        ${meta.alias}.filtered.fastq.gz > /dev/null
+    
+    mv histograms/* fastcat_stats/
+    
+    # Generate summary files and stats as in Ingress
+    awk 'NR==1{for (i=1; i<=NF; i++) {ix[\$i] = i}} NR>1 {c+=\$ix["n_seqs"]} END{print c}' \
+        fastcat_stats/per-file-stats.tsv > fastcat_stats/n_seqs
+    awk -F '\\t' 'NR==1 {for (i=1; i<=NF; i++) {ix[\$i] = i}} NR>1 && \$ix["run_id"] != "" {print \$ix["run_id"]}' \
+        fastcat_stats/per-file-runids.tsv | sort | uniq > fastcat_stats/run_ids
+    awk -F '\\t' 'NR==1 {for (i=1; i<=NF; i++) {ix[\$i] = i}} NR>1 && \$ix["basecaller"] != "" {print \$ix["basecaller"]}' \
+        fastcat_stats/per-file-basecallers.tsv | sort | uniq > fastcat_stats/basecallers
+    """
+}
+
+
 process deNovo {
     label "wfbacterialgenomes"
     cpus params.threads
@@ -1036,11 +1074,28 @@ workflow {
             "keep_unaligned":true,
             "return_fastq":true,
         ])
-    } 
+    }
 
+    // Optionally apply DUST filtering
+    if (params.run_fastlint) {
+        samples_with_reads = samples
+            | filter { meta, reads, stats -> 
+                meta.n_seqs != null && meta.n_seqs > 0 && reads != null
+            }
+            | map { meta, reads, stats -> [meta, reads] }
+            | fastlintFilter
+        samples_without_reads = samples
+            | filter { meta, reads, stats -> 
+                meta.n_seqs == null || meta.n_seqs == 0 || reads == null
+            }
+        samples_filtered = samples_with_reads
+            | mix(samples_without_reads)
+    } else {
+        samples_filtered = samples
+    }
    
     reference = params.reference
-    results = calling_pipeline(samples, reference)
+    results = calling_pipeline(samples_filtered, reference)
 
     results.all_out
     | output

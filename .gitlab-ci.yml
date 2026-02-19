@@ -97,14 +97,15 @@ docker-run:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
               --fastq test_data/no_data --sample_sheet test_data/sample_sheet_no_data.csv"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
-                  medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,makeReport,runBakta,download_bakta_db,makePerSampleReports,runDnaapler,runMobSuite"
+                  medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,makeReport,\
+                  runBakta,download_bakta_db,makePerSampleReports,runDnaapler,runMobSuite"
         - if: $MATRIX_NAME == "empty-ubam"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
               --bam test_data/no_data_ubam/empty.bam"
               NF_IGNORE_PROCESSES: "alignReads,readStats,coverStats,splitRegions,\
                   medakaConsensus,medakaNetwork,medakaVariant,medakaVariantHdf,runBakta,download_bakta_db,makePerSampleReports,\
-                  collect_results,createRunModel,deNovo,runDnaapler,runMobSuite"
+                  collect_results,createRunModel,deNovo,runDnaapler,runMobSuite,fastlintFilter"
         - if: $MATRIX_NAME == "bad-bakta-param"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
@@ -139,5 +140,5 @@ docker-run:
         - if: $MATRIX_NAME == "isolates=false"
           variables:
               NF_WORKFLOW_OPTS: "-executor.\\$$local.memory 32GB \
-                  --fastq test_data/fastq --threads 3 --isolates false"
-              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports,download_bakta_db"
+                  --fastq test_data/fastq --threads 3 --isolates false --run_fastlint false"
+              NF_IGNORE_PROCESSES: "medakaVariant,medakaVariantHdf,makePerSampleReports,download_bakta_db,fastlintFilter"
