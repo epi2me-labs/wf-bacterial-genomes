@@ -265,6 +265,19 @@
                     "Title": "Minimum read length",
                     "description": "Reads below this threshold will be removed from analysis."
                 },
+                "run_fastlint": {
+                    "type": "boolean",
+                    "default": true,
+                    "title": "Enable fastlint filtering",
+                    "description": "Enable low-complexity read filtering using fastlint."
+                },
+                "fastlint_threshold": {
+                    "type": "integer",
+                    "default": 20,
+                    "title": "Fastlint filtering threshold",
+                    "description": "Threshold for low-complexity read filtering using fastlint.",
+                    "help_text": "Reads with DUST complexity scores above this threshold will be filtered out. A lower threshold leads to more stringent filtering."
+                },
                 "max_coverage_plots": {
                     "type": "integer",
                     "default": 20,

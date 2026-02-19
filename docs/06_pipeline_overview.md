@@ -2,7 +2,10 @@
 
 ### 1. Preprocessing concatenates input files and generate per read stats.
 
-The [fastcat/bamstats](https://github.com/epi2me-labs/fastcat) tool is used to concatenate multifile samples to be processed by the workflow. It will also output per read statistics, such as read length, count and quality statistics.
+The workflow uses [fastcat](https://github.com/epi2me-labs/fastcat) to concatenate multifile samples for further processing.
+Optionally, minimum read length or read complexity filtering can be customised using the `--min_read_length` and `--fastlint_threshold` parameters.
+The length filter is used to exclude reads below the specified threshold, while the [fastlint](https://github.com/epi2me-labs/fastcat?tab=readme-ov-file#fastlint) utility is used to apply DUST filtering to remove low-complexity reads.
+Filtered reads are passed to fastcat to generate read statistics, including read length, read count, and quality metrics.
 
 ### 2a. De novo assembly
 
