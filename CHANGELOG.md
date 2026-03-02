@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v2.0.2]
 ### Added
 - Implemented `fastlint` to filter low complexity reads and improve Flye assembly performance.
     - `--fastlint_threshold` parameter can be used to adjust DUST filter stringency.
@@ -20,8 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Removed the functionality that allowed the workflow to download an externally stored Bakta database, eliminating the need for an internet connection on first execution.
     - Removed the `--bakta_db_type` parameter. To use the "full" Bakta database, it must be downloaded separately and provided to the workflow using the `--bakta_db` parameter.
 - Fixed an issue where stderr could be written to `versions.txt`, causing the workflow to crash.
-
-
 
 ## [v2.0.1]
 ### Changed
