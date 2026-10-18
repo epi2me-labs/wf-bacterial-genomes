@@ -6,3 +6,23 @@ template-workflow
 *.pyc
 *.pyo
 .DS_store
+
+# Nextflow execution files
+.nextflow/
+.nextflow.log*
+work/
+
+# Pipeline outputs
+results/
+output/
+
+# Logs
+*.log
+logs/
+
+# Conda and environment files
+.env
+.venv/
+venv/
+env/
+.conda/
