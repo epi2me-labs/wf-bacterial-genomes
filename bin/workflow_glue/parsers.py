@@ -3,6 +3,7 @@
 from collections import defaultdict
 import os
 import re
+from urllib.parse import unquote
 
 import pandas as pd
 
@@ -153,3 +154,61 @@ def parse_mlst(filename):
         df = pd.concat([df.drop("alleles", axis=1), alleles], axis=1)
         df.columns = df.columns.str.replace("_", " ")
     return df
+
+
+def _gff3_attrs(text):
+    """Split a GFF3 attribute column into a dict with lower-cased keys."""
+    out = {}
+    for item in text.strip().split(";"):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        out[key.strip().lower()] = unquote(value.strip())
+    return out
+
+
+def parse_generic_gff3(filename, keep_types=None):
+    """Parse a generic GFF3 (e.g. funannotate) into the report's frame.
+
+    :param keep_types: feature types (column 3) to keep; None keeps all.
+    The gene symbol of a kept feature is taken from its parent ``gene`` row
+    when the feature itself carries none.
+    """
+    gene_names = {}
+    kept = []
+    with open(filename) as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if line == "##FASTA":
+                break
+            if not line.strip() or line.startswith("#"):
+                continue
+            cols = line.split("\t")
+            if len(cols) != 9:
+                continue
+            contig, _src, ftype, start, end, _score, strand, _phase, attr = cols
+            a = _gff3_attrs(attr)
+            if ftype == "gene":
+                name = a.get("name") or a.get("gene")
+                if name:
+                    gene_names[a.get("id")] = name
+            if keep_types and ftype not in keep_types:
+                continue
+            kept.append((contig, start, end, strand, a))
+
+    rows = []
+    for contig, start, end, strand, a in kept:
+        ec = a.get("ec_number") or a.get("ec") or "-"
+        xref = a.get("dbxref") or a.get("db_xref")
+        if ec == "-" and xref:
+            ecs = [x[3:] for x in xref.split(",") if x.startswith("EC:")]
+            ec = ",".join(ecs) if ecs else "-"
+        gene = a.get("gene") or gene_names.get(a.get("parent")) or "-"
+        rows.append([
+            contig, a.get("id", "-"), start, end, strand,
+            gene, a.get("product", "-"), ec])
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "contig", "ID", "start", "end", "strand",
+            "gene", "product", "EC number"])

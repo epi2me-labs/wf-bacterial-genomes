@@ -120,6 +120,22 @@
       "optional": true,
       "type": "per-sample"
     },
+    "annotation-funannotate-gff3": {
+      "filepath": "{{ alias }}.funannotate.gff3",
+      "title": "funannotate annotations in GFF3 format",
+      "description": "Gene annotations of the assembly predicted by funannotate, in GFF3 format.",
+      "mime-type": "application/octet-stream",
+      "optional": true,
+      "type": "per-sample"
+    },
+    "annotation-funannotate-gbk": {
+      "filepath": "{{ alias }}.funannotate.gbk",
+      "title": "funannotate annotations in GenBank format",
+      "description": "Gene annotations of the assembly predicted by funannotate, in GenBank format.",
+      "mime-type": "application/octet-stream",
+      "optional": true,
+      "type": "per-sample"
+    },
     "mlst": {
       "filepath": "{{ alias }}.mlst.json",
       "title": "Sequence typing results",

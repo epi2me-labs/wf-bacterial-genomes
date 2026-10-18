@@ -281,6 +281,55 @@ process runBakta {
 }
 
 
+process runFunannotate {
+    // run funannotate (mask -> predict -> annotate) on the consensus sequence
+    label "funannotate"
+    cpus params.threads
+    memory "16 GB"
+    input:
+        tuple val(meta), path("consensus.fasta.gz")
+        path funannotate_db
+    output:
+        tuple val(meta),
+            path("${meta.alias}.funannotate.gff3"),
+            path("${meta.alias}.funannotate.gbk"),
+            optional: true, emit: annot
+        tuple val(meta),
+            env(FUN_EXIT_CODE),
+            env(STDERR),
+            emit: exit_status
+    script:
+    def opts = params.funannotate_opts ?: ""
+    """
+    gunzip -c consensus.fasta.gz > consensus.fasta
+
+    # the database is mounted, not baked into the image
+    export FUNANNOTATE_DB=\$(readlink -f ${funannotate_db})
+
+    # private writable Augustus config per task (training writes into it)
+    cp -r "\${AUGUSTUS_CONFIG_PATH:-/opt/conda/envs/funannotate/config}" augustus_config
+    chmod -R u+w augustus_config
+    export AUGUSTUS_CONFIG_PATH=\$PWD/augustus_config
+
+    export TMPDIR=\$PWD/tmp && mkdir -p \$TMPDIR
+    set +e
+    funannotate mask -i consensus.fasta -o masked.fasta --cpus $task.cpus 2> stderr.log && \\
+    funannotate predict -i masked.fasta -o fun_out -s "${params.funannotate_species}" \\
+        --cpus $task.cpus ${opts} 2>> stderr.log && \\
+    funannotate annotate -i fun_out --cpus $task.cpus --tmpdir \$TMPDIR 2>> stderr.log
+    FUN_EXIT_CODE=\$?
+    set -e
+    if [[ \$FUN_EXIT_CODE -eq 0 ]]; then
+        cp fun_out/annotate_results/*.gff3 "${meta.alias}.funannotate.gff3"
+        cp fun_out/annotate_results/*.gbk  "${meta.alias}.funannotate.gbk"
+        STDERR=""
+    else
+        STDERR=\$(tail -n 20 stderr.log 2>/dev/null || echo "No stderr available")
+    fi
+    """
+}
+
+
 process runMobSuite {
     label "mobsuite"
     cpus params.threads
@@ -327,6 +376,17 @@ process baktaVersion {
         path "bakta_version.txt"
     """
     bakta --version | sed 's/ /,/' >> "bakta_version.txt"
+    """
+}
+
+process funannotateVersion {
+    label "funannotate"
+    cpus 1
+    memory "2 GB"
+    output:
+        path "funannotate_version.txt"
+    """
+    python -c "from importlib.metadata import version; print('funannotate,' + version('funannotate'))" > funannotate_version.txt
     """
 }
 
@@ -517,7 +577,7 @@ process makeReport {
     script:
         report_name = "wf-bacterial-genomes-report.html"
         denovo = params.reference_based_assembly as Boolean ? "" : "--denovo"
-        bakta_arg = bakta_enabled && params.run_bakta ? "--bakta" : ""
+        bakta_arg = bakta_enabled ? "--bakta" : ""
         isolates = params.isolates as Boolean ? "--isolates" : ""
         plasmid_id = params.run_plasmid_id as Boolean ? "--plasmid_id" : ""  
         samples = sample_ids.join(" ")
@@ -831,6 +891,34 @@ workflow calling_pipeline {
                 .mix(failed_samples.map { meta, status -> [meta, "not-met"] })
                 .unique()
         }
+        else if (params.run_funannotate) {
+            if (!params.funannotate_species) {
+                error "--funannotate_species is required with --run_funannotate"
+            }
+            if (!params.funannotate_db) {
+                error "--funannotate_db is required with --run_funannotate"
+            }
+            // value channel so every sample gets the database
+            fun_db = Channel.value(file(params.funannotate_db, checkIfExists: true))
+            fun_output = runFunannotate(consensus, fun_db)
+            fun_output.exit_status.subscribe { meta, exit_code, stderr_tail ->
+                if (exit_code != "0") {
+                    log.warn "funannotate failed for sample '${meta.alias}': ${stderr_tail}"
+                }
+            }
+            // same tuple shape as Bakta: [meta, gff3, secondary_file]
+            bakta = fun_output.exit_status
+                .join(fun_output.annot, by: 0, remainder: true, failOnMismatch: false)
+                .filter { meta, exit_code, stderr_tail, gff3 = null, gbk = null ->
+                    def valid_output = gff3?.size() > 0 && gbk?.size() > 0
+                    return exit_code == "0" && valid_output
+                }
+                .map { meta, exit_code, stderr_tail, gff3, gbk -> [meta, gff3, gbk] }
+            bakta_status = bakta
+                .map { meta, gff3, gbk -> [meta, "complete"] }
+                .mix(failed_samples.map { meta, status -> [meta, "not-met"] })
+                .unique()
+        }
         else {
             bakta = Channel.empty()
             bakta_status = reads |
@@ -888,7 +976,7 @@ workflow calling_pipeline {
         | mix( failed_samples )
         | unique() )
 
-        bakta_version = baktaVersion()
+        bakta_version = params.run_funannotate && !params.run_bakta ? funannotateVersion() : baktaVersion()
         medaka_version = medakaVersion(bakta_version)
         mlst_version = mlstVersion(medaka_version)
         sourmash_version = sourmashVersion(mlst_version)
@@ -946,7 +1034,7 @@ workflow calling_pipeline {
             workflow_params,
             vcf_stats.map { meta, stats -> stats }.collect().ifEmpty(OPTIONAL_FILE),
             sample_ids.collect(),
-            bakta_files.map { files -> params.run_bakta as Boolean && files.size() > 0 },
+            bakta_files.map { files -> (params.run_bakta || params.run_funannotate) as Boolean && files.size() > 0 },
             fastq_stats.collect(),
             depth_stats.fwd.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),
             depth_stats.rev.map{ meta, depths -> depths }.collect().ifEmpty(OPTIONAL_FILE),

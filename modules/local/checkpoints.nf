@@ -211,10 +211,14 @@ process annotationCheckpoint {
   output:
     path "checkpoint_info.json", emit: checkpoint
   script:
-    def files = status == 'complete' ? [ 
+    def use_fun = params.run_funannotate && !params.run_bakta
+    def files = status == 'complete' ? (use_fun ? [
+      "annotation-funannotate-gff3": "${meta.alias}.funannotate.gff3",
+      "annotation-funannotate-gbk": "${meta.alias}.funannotate.gbk"
+    ] : [
       "annotation-gff3": "${meta.alias}.bakta.gff3",
       "annotation-gbff": "${meta.alias}.bakta.gbff"
-    ] : [ ]
+    ]) : [ ]
     // make our checkpoint data
     def checkpoint_data = [[        
             sample: "${meta.alias}",

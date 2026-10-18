@@ -15,7 +15,8 @@ from workflow_glue.models.custom import (
 )
 
 from .parsers import (  # noqa: ABS101
-    parse_bakta_gff3
+    parse_bakta_gff3,
+    parse_generic_gff3
 )
 from .process_resfinder_iso import (  # noqa: ABS101
     parse_resfinder
@@ -32,6 +33,8 @@ def gather_sample_files(alias, data_dir):
             data_dir, f"{alias}.medaka.vcf.gz"),
         "bakta": os.path.join(
             data_dir, f"{alias}.bakta.gff3"),
+        "funannotate": os.path.join(
+            data_dir, f"{alias}.funannotate.gff3"),
         "mlst": os.path.join(
             data_dir, f"{alias}.mlst.json"),
         "amr": os.path.join(
@@ -237,13 +240,17 @@ def parse_serotyping(serotype_file):
     return serotype
 
 
-def annotation_stats(bakta_file):
-    """Extract annotation information from Bakta GFF3 file."""
-    bakta_df = parse_bakta_gff3(bakta_file)
-    bakta_df = bakta_df.rename(columns={"EC number": "ec_number"})
+def annotation_stats(gff_file, tool="bakta"):
+    """Extract annotation information from a Bakta or funannotate GFF3 file."""
+    if tool == "bakta":
+        annot_df = parse_bakta_gff3(gff_file)
+    else:
+        annot_df = parse_generic_gff3(
+            gff_file, keep_types={"mRNA", "tRNA", "rRNA", "ncRNA"})
+    annot_df = annot_df.rename(columns={"EC number": "ec_number"})
 
     annotations = []
-    for _, row in bakta_df.iterrows():
+    for _, row in annot_df.iterrows():
         annotations.append(Annotation(
             contig=str(row["contig"]) if str(row["contig"]) != "-" else None,
             ID=str(row["ID"]) if str(row["ID"]) != "-" else None,
@@ -308,6 +315,8 @@ def assembly_stats(params_data, files):
     annotations = []
     if params_data.get("run_bakta", False) and files["bakta"]:
         annotations = annotation_stats(files["bakta"])
+    elif params_data.get("run_funannotate", False) and files["funannotate"]:
+        annotations = annotation_stats(files["funannotate"], tool="funannotate")
 
     flye_stats = None
     if files["flye_stats"]:

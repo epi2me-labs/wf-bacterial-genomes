@@ -592,9 +592,16 @@ def create_report(args, logger):
 
     if args.bakta:
         with report.add_section("Annotations", "Annot."):
+            if params_data.get("run_funannotate") and not params_data.get("run_bakta"):
+                annot_tool = html_tags.a(
+                    "funannotate",
+                    href="https://github.com/nextgenusfs/funannotate")
+            else:
+                annot_tool = html_tags.a(
+                    "Bakta", href="https://github.com/oschwengers/bakta")
             html_tags.p(
                 "The contigs were annotated with ",
-                html_tags.a("Bakta", href="https://github.com/oschwengers/bakta"),
+                annot_tool,
                 ". ",
                 html_tags.br(),
                 "You can use the dropdown menu to view different samples."

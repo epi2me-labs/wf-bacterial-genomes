@@ -241,6 +241,25 @@
                     "description": "Path to existing Bakta database directory. If not provided, the workflow will download the database.",
                     "help_text": "Provide the path to a Bakta database directory containing both Bakta and AMRFinderPlus databases. If not specified, the workflow will automatically download the database type specified by bakta_db_type."
                 },
+                "run_funannotate": {
+                    "type": "boolean",
+                    "title": "Annotate genome with funannotate",
+                    "description": "Run funannotate mask + predict + annotate on the consensus assembly (fungal genomes). Set --run_bakta false when using it.",
+                    "default": false
+                },
+                "funannotate_species": {
+                    "type": "string",
+                    "description": "Species name passed to funannotate -s, e.g. 'Aspergillus fumigatus'. Required with --run_funannotate."
+                },
+                "funannotate_opts": {
+                    "type": "string",
+                    "description": "Extra command-line arguments for funannotate predict, e.g. '--busco_db fungi'."
+                },
+                "funannotate_db": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "Path to a funannotate database directory built with `funannotate setup`. Required with --run_funannotate."
+                },
                 "flye_genome_size": {
                     "type": "integer",
                     "Title": "Estimated genome size",
